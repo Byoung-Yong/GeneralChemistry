@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 아보가드로의 법칙</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 폰트는 영어 폰트명만 사용 */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid #cbd5e1;
+            overflow: hidden;
+        }
+
+        /* 슬라이더 커스텀 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .slider-n::-webkit-slider-thumb { background: #3b82f6; } /* Blue */
+        .slider-v::-webkit-slider-thumb { background: #10b981; } /* Emerald */
+        .slider-p::-webkit-slider-thumb { background: #8b5cf6; } /* Purple */
+
+        /* 상태 표시등 효과 */
+        .status-light {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .status-red {
+            background-color: #ef4444;
+            box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.5);
+        }
+        .status-green {
+            background-color: #10b981;
+            box-shadow: 0 0 20px 5px rgba(16, 185, 129, 0.6);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px 5px rgba(16, 185, 129, 0.6); }
+            50% { transform: scale(1.05); box-shadow: 0 0 30px 8px rgba(16, 185, 129, 0.8); }
+            100% { transform: scale(1); box-shadow: 0 0 20px 5px rgba(16, 185, 129, 0.6); }
+        }
+
+        .wall-piston {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            pointer-events: none;
+            border-right: 6px solid #64748b;
+        }
+    </style>
+</head>
+<body class="theme-page text-slate-800 antialiased p-4 md:p-8">
+
+    <div class="theme-shell max-w-[1400px] mx-auto bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <header class="theme-hero bg-blue-800 text-white p-5">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold mb-1 text-blue-200">아보가드로의 법칙 (Avogadro's Law) 탐구</h1>
+                    <p class="text-blue-100 text-sm">일정한 온도와 압력에서 기체의 부피(V)와 입자 수(n)의 관계를 실험해보세요.</p>
+                </div>
+                <div class="theme-hero-box hidden md:block text-right">
+                    <p class="text-xl font-bold text-yellow-300">\( V \propto n \)</p>
+                    <p class="text-xs text-blue-200">(T, P 일정)</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="theme-content flex flex-col lg:flex-row min-h-[700px]">
+            <!-- Left Panel: Controls & Canvas -->
+            <div class="theme-side-panel w-full lg:w-5/12 p-6 bg-slate-50 border-r border-slate-200 flex flex-col">
+                
+                <!-- Step 1: Target Pressure -->
+                <div class="theme-panel p-4 rounded-lg border border-purple-200 shadow-sm mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-purple-800 text-sm">1. 목표 압력 설정 (Constant Pressure)</label>
+                        <span id="display-targetP" class="font-mono font-bold text-purple-700 bg-purple-200 px-2 py-1 rounded">5.0 atm</span>
+                    </div>
+                    <input type="range" id="slider-targetP" min="2.0" max="10.0" value="5.0" step="0.5" class="slider-p mb-1">
+                    <p class="text-[11px] text-purple-600">* 목표 압력을 변경하면 기존 기록이 초기화됩니다.</p>
+                </div>
+
+                <!-- Step 2: Adjust Variables -->
+                <div class="theme-panel-white p-4 rounded-lg border border-slate-200 shadow-sm mb-4">
+                    <h2 class="text-sm font-bold text-slate-700 mb-4">2. 기체 상태 조절</h2>
+                    
+                    <!-- Particles (n) -->
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-blue-600 text-sm">입자 수 (n)</label>
+                            <span id="display-n" class="font-mono font-bold text-blue-700 bg-blue-100 px-2 rounded">50 개</span>
+                        </div>
+                        <input type="range" id="slider-n" min="10" max="100" value="50" step="10" class="slider-n">
+                    </div>
+
+                    <!-- Volume (V) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-emerald-600 text-sm">부피 (V) 조절</label>
+                            <span id="display-V" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 rounded">500 L</span>
+                        </div>
+                        <input type="range" id="slider-V" min="100" max="1000" value="500" step="10" class="slider-v">
+                        <p class="text-[11px] text-emerald-600 mt-1">슬라이더를 움직여 현재 압력을 목표 압력에 맞추세요.</p>
+                    </div>
+                </div>
+
+                <!-- Status Indicator & Record Action -->
+                <div class="flex items-center justify-between bg-slate-800 p-4 rounded-lg shadow-md mb-4">
+                    <div class="flex items-center gap-4">
+                        <div id="status-indicator" class="status-light w-8 h-8 rounded-full bg-red-500 border-2 border-slate-600"></div>
+                        <div>
+                            <p class="text-xs text-slate-400">현재 압력 (\( P_{cur} \))</p>
+                            <p class="text-xl font-mono font-bold text-white"><span id="metric-currentP">5.00</span> <span class="text-sm text-slate-400">atm</span></p>
+                        </div>
+                    </div>
+                    <button id="btn-record" class="theme-btn-primary bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold py-2 px-6 rounded transition duration-200">
+                        데이터 기록
+                    </button>
+                </div>
+
+                <!-- Canvas -->
+                <div class="theme-canvas-light canvas-container w-full flex-1 min-h-[250px] relative">
+                    <canvas id="gasCanvas" class="bg-white absolute inset-0 w-full h-full"></canvas>
+                    <div id="wall-piston" class="wall-piston"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Data & Charts -->
+            <div class="w-full lg:w-7/12 p-6 flex flex-col gap-6">
+                
+                <div class="theme-panel p-4 rounded-lg border border-blue-200">
+                    <h3 class="font-bold text-blue-900 mb-1">실험 방법</h3>
+                    <ol class="list-decimal list-inside text-sm text-blue-800 space-y-1">
+                        <li>입자 수(n) 슬라이더를 변경합니다. (압력이 변하면서 빨간불이 켜집니다.)</li>
+                        <li>부피(V) 슬라이더를 조절하여 현재 압력을 목표 압력과 똑같이 맞춥니다.</li>
+                        <li><strong>초록불</strong>이 켜지면 <span class="font-bold text-blue-600">[데이터 기록]</span> 버튼을 누릅니다.</li>
+                        <li>여러 개의 점을 찍어 부피와 입자 수의 관계를 그래프에서 확인합니다.</li>
+                    </ol>
+                </div>
+
+                <!-- Scatter Chart -->
+                <div class="theme-panel-white p-4 rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[350px]">
+                    <h3 class="text-sm font-bold text-slate-700 mb-2 text-center">부피(V) vs 입자 수(n) 그래프</h3>
+                    <div class="flex-1 relative">
+                        <canvas id="avogadroChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        // P = (n * R * T) / V. Let's fix R*T = 50 for this simulation scale.
+        // P = (50 * n) / V
+        const RT_CONSTANT = 50; 
+        
+        let targetP = 5.0;
+        let currentN = 50;
+        let currentV = 500;
+        let currentP = 5.0;
+        
+        let recordedData = [];
+        let particles = [];
+
+        // Canvas Elements
+        const canvas = document.getElementById('gasCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.canvas-container');
+        const pistonWall = document.getElementById('wall-piston');
+        
+        let cw, ch, simWidth;
+
+        function resizeCanvas() {
+            cw = container.clientWidth;
+            ch = container.clientHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+            updateSimWidth();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateSimWidth() {
+            // V ranges from 100 to 1000. Map to 10% ~ 100% of canvas width.
+            simWidth = Math.max(cw * (currentV / 1000), 30);
+            pistonWall.style.width = simWidth + 'px';
+        }
+
+        // Particle Engine
+        class Particle {
+            constructor() {
+                this.radius = 4;
+                const spawnWidth = simWidth || cw;
+                this.x = this.radius + Math.random() * (spawnWidth - 2 * this.radius);
+                this.y = this.radius + Math.random() * (ch - 2 * this.radius);
+                
+                // Constant speed (Temperature is constant)
+                const speed = 4;
+                const angle = Math.random() * 2 * Math.PI;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off walls
+                if (this.x <= this.radius) { 
+                    this.x = this.radius; this.vx = Math.abs(this.vx); 
+                } else if (this.x >= simWidth - this.radius) { 
+                    this.x = simWidth - this.radius; this.vx = -Math.abs(this.vx); 
+                }
+
+                if (this.y <= this.radius) { 
+                    this.y = this.radius; this.vy = Math.abs(this.vy); 
+                } else if (this.y >= ch - this.radius) { 
+                    this.y = ch - this.radius; this.vy = -Math.abs(this.vy); 
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6'; // blue-500
+                ctx.fill();
+            }
+        }
+
+        function adjustParticles() {
+            while (particles.length < currentN) { particles.push(new Particle()); }
+            while (particles.length > currentN) { particles.pop(); }
+        }
+
+        // --- Chart Setup (No theoretical line) ---
+        const ctxChart = document.getElementById('avogadroChart').getContext('2d');
+        const avogadroChart = new Chart(ctxChart, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '기록된 데이터 (Recorded Data)',
+                    data: [],
+                    backgroundColor: '#10b981', // emerald-500
+                    borderColor: '#047857',
+                    borderWidth: 2,
+                    pointRadius: 7,
+                    pointHoverRadius: 9
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300 },
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return `입자 수(n): ${ctx.parsed.x}, 부피(V): ${ctx.parsed.y}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: '입자 수 n (개)', font: { weight: 'bold' } },
+                        min: 0, max: 110
+                    },
+                    y: {
+                        title: { display: true, text: '부피 V (L)', font: { weight: 'bold' } },
+                        min: 0, max: 1100
+                    }
+                }
+            }
+        });
+
+        // --- State Management ---
+        const lightEl = document.getElementById('status-indicator');
+        const btnRecord = document.getElementById('btn-record');
+        const textCurrentP = document.getElementById('metric-currentP');
+
+        function checkState() {
+            // P = (50 * n) / V
+            currentP = (RT_CONSTANT * currentN) / currentV;
+            textCurrentP.innerText = currentP.toFixed(2);
+
+            // Check if match (Tolerance ±0.1 atm)
+            const isMatch = Math.abs(currentP - targetP) <= 0.1;
+
+            if (isMatch) {
+                lightEl.className = "status-light w-8 h-8 rounded-full border-2 border-slate-600 status-green";
+                btnRecord.disabled = false;
+            } else {
+                lightEl.className = "status-light w-8 h-8 rounded-full border-2 border-slate-600 status-red";
+                btnRecord.disabled = true;
+            }
+        }
+
+        function resetData() {
+            recordedData = [];
+            avogadroChart.data.datasets[0].data = [];
+            avogadroChart.update();
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('slider-targetP').addEventListener('input', (e) => {
+            targetP = parseFloat(e.target.value);
+            document.getElementById('display-targetP').innerText = `${targetP.toFixed(1)} atm`;
+            resetData(); // New target P means a new line, so reset old data
+            checkState();
+        });
+
+        document.getElementById('slider-n').addEventListener('input', (e) => {
+            currentN = parseInt(e.target.value);
+            document.getElementById('display-n').innerText = `${currentN} 개`;
+            adjustParticles();
+            checkState();
+        });
+
+        document.getElementById('slider-V').addEventListener('input', (e) => {
+            currentV = parseInt(e.target.value);
+            document.getElementById('display-V').innerText = `${currentV} L`;
+            updateSimWidth();
+            checkState();
+        });
+
+        btnRecord.addEventListener('click', () => {
+            // Check if this exact n is already recorded to prevent overlapping identical points
+            const exists = recordedData.some(d => d.x === currentN && d.y === currentV);
+            if (!exists) {
+                recordedData.push({ x: currentN, y: currentV });
+                avogadroChart.data.datasets[0].data = recordedData;
+                avogadroChart.update();
+            }
+        });
+
+        // --- Main Loop ---
+        function animate() {
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, simWidth, ch);
+            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(simWidth, 0, cw - simWidth, ch);
+            
+            particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Init
+        resizeCanvas();
+        adjustParticles();
+        checkState();
+        animate();
+
+    </script>
+</body>
+</html>

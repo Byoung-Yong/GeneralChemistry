@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 통합 기체 법칙 시뮬레이션</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 영문 폰트명만 사용 */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .canvas-container {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid #cbd5e1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 슬라이더 커스텀 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+            transition: background 0.3s;
+        }
+        input[type=range]:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5; /* indigo-600 */
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        input[type=range]:disabled::-webkit-slider-thumb {
+            background: #94a3b8; /* slate-400 */
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+
+        /* 변수 카드 상태 스타일 */
+        .var-card {
+            transition: all 0.3s ease;
+            border-left-width: 4px;
+        }
+        .var-locked { border-left-color: #94a3b8; background-color: #f8fafc; opacity: 0.9; }
+        .var-active { border-left-color: #3b82f6; background-color: #eff6ff; }
+        .var-target { border-left-color: #f59e0b; background-color: #fffbeb; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.1); }
+
+        /* Mode Tabs */
+        .tab-btn { transition: all 0.2s ease; border-bottom: 3px solid transparent; }
+        .tab-btn.active { border-bottom-color: #4f46e5; color: #4f46e5; font-weight: bold; background-color: #eef2ff; }
+        .tab-btn.inactive { color: #64748b; }
+        .tab-btn.inactive:hover { background-color: #f1f5f9; color: #334155; }
+    </style>
+</head>
+<body class="theme-page text-slate-800 antialiased p-4 md:p-8">
+
+    <div class="theme-shell max-w-[1400px] mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200 flex flex-col">
+        <!-- Header -->
+        <header class="theme-hero bg-slate-800 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold mb-1 text-indigo-300">통합 기체 법칙 시뮬레이션</h1>
+                <p class="text-slate-300 text-sm">개별 법칙의 통제 변인과 조작 변인을 비교하여 이상 기체 상태 방정식을 이해합니다.</p>
+            </div>
+            <!-- Dynamic MathJax Formula Box -->
+            <div class="theme-hero-box bg-slate-900 px-6 py-3 rounded-lg border border-slate-700 min-w-[250px] text-center shadow-inner">
+                <div id="math-formula" class="text-xl font-bold text-yellow-300 min-h-[32px]">
+                    \( PV = nRT \)
+                </div>
+            </div>
+        </header>
+
+        <!-- Mode Select Tabs -->
+        <div class="flex px-2 pt-2 bg-slate-50 border-b border-slate-200 overflow-x-auto">
+            <button onclick="setMode('boyle')" id="tab-boyle" class="tab-btn active px-6 py-3 text-sm md:text-base whitespace-nowrap">보일의 법칙 (T, n 일정)</button>
+            <button onclick="setMode('charles')" id="tab-charles" class="tab-btn inactive px-6 py-3 text-sm md:text-base whitespace-nowrap">샤를의 법칙 (P, n 일정)</button>
+            <button onclick="setMode('avogadro')" id="tab-avogadro" class="tab-btn inactive px-6 py-3 text-sm md:text-base whitespace-nowrap">아보가드로의 법칙 (P, T 일정)</button>
+            <button onclick="setMode('integrated')" id="tab-integrated" class="tab-btn inactive px-6 py-3 text-sm md:text-base whitespace-nowrap">통합: 이상기체 방정식 (PV=nRT)</button>
+        </div>
+
+        <div class="theme-content flex flex-col lg:flex-row flex-1 p-6 gap-6 bg-slate-50">
+            <!-- Left Panel: Variables Control -->
+            <div class="theme-side-panel w-full lg:w-1/3 flex flex-col gap-4 p-4">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="text-lg font-bold text-slate-700">기체 상태 변수</h2>
+                    <span class="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-1 rounded">R = 0.082 L·atm/(mol·K)</span>
+                </div>
+                
+                <!-- Pressure (P) Card -->
+                <div id="card-P" class="var-card border rounded-lg p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-slate-700 flex items-center gap-2">
+                            압력 (Pressure, P)
+                            <span id="badge-P" class="text-[10px] px-2 py-0.5 rounded-full font-bold"></span>
+                        </label>
+                        <span id="val-P" class="font-mono font-bold text-lg text-slate-800">1.00 atm</span>
+                    </div>
+                    <input type="range" id="slider-P" min="0.1" max="15.0" step="0.1" value="1.0" oninput="updateFromSlider('P')">
+                </div>
+
+                <!-- Volume (V) Card -->
+                <div id="card-V" class="var-card border rounded-lg p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-slate-700 flex items-center gap-2">
+                            부피 (Volume, V)
+                            <span id="badge-V" class="text-[10px] px-2 py-0.5 rounded-full font-bold"></span>
+                        </label>
+                        <span id="val-V" class="font-mono font-bold text-lg text-slate-800">24.6 L</span>
+                    </div>
+                    <input type="range" id="slider-V" min="5" max="100" step="0.5" value="24.6" oninput="updateFromSlider('V')">
+                </div>
+
+                <!-- Temperature (T) Card -->
+                <div id="card-T" class="var-card border rounded-lg p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-slate-700 flex items-center gap-2">
+                            온도 (Temperature, T)
+                            <span id="badge-T" class="text-[10px] px-2 py-0.5 rounded-full font-bold"></span>
+                        </label>
+                        <span id="val-T" class="font-mono font-bold text-lg text-slate-800">300 K</span>
+                    </div>
+                    <input type="range" id="slider-T" min="100" max="1000" step="10" value="300" oninput="updateFromSlider('T')">
+                </div>
+
+                <!-- Moles (n) Card -->
+                <div id="card-n" class="var-card border rounded-lg p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-slate-700 flex items-center gap-2">
+                            입자 수 (Moles, n)
+                            <span id="badge-n" class="text-[10px] px-2 py-0.5 rounded-full font-bold"></span>
+                        </label>
+                        <span id="val-n" class="font-mono font-bold text-lg text-slate-800">1.00 mol</span>
+                    </div>
+                    <input type="range" id="slider-n" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateFromSlider('n')">
+                </div>
+
+                <!-- Integrated Mode Specific Target Selector -->
+                <div id="target-selector" class="theme-panel hidden mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm">
+                    <p class="font-bold text-indigo-800 mb-2">계산할 결과 변수 선택 (나머지는 가변):</p>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="targetVar" value="P" checked onchange="setIntegratedTarget(this.value)"> P</label>
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="targetVar" value="V" onchange="setIntegratedTarget(this.value)"> V</label>
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="targetVar" value="T" onchange="setIntegratedTarget(this.value)"> T</label>
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="targetVar" value="n" onchange="setIntegratedTarget(this.value)"> n</label>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Panel: Visuals & Charts -->
+            <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                
+                <div class="flex flex-col xl:flex-row gap-6 h-[300px]">
+                    <!-- Canvas Visual -->
+                    <div class="theme-canvas-light w-full xl:w-1/2 canvas-container flex items-end justify-center pb-4 relative">
+                        <!-- Pressure Gauge Visual -->
+                        <div class="absolute top-4 right-4 bg-white/90 p-2 rounded shadow border border-slate-200 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Pressure Gauge</span>
+                            <span id="gauge-P" class="text-xl font-mono font-bold text-amber-600">1.0 atm</span>
+                        </div>
+                        
+                        <canvas id="simCanvas" width="200" height="250"></canvas>
+                    </div>
+
+                    <!-- Dynamic Graph -->
+                    <div class="theme-panel-white w-full xl:w-1/2 bg-white rounded-lg border border-slate-200 shadow-sm p-4 relative">
+                        <h3 id="chart-title" class="text-sm font-bold text-slate-700 text-center mb-1">그래프</h3>
+                        <div class="absolute inset-0 top-8 p-2">
+                            <canvas id="lawChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="theme-panel p-5 rounded-lg border border-slate-200 shadow-sm">
+                    <h3 class="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+                        법칙 요약 및 해석
+                    </h3>
+                    <p id="desc-text" class="text-sm text-slate-600 leading-relaxed">
+                        탭을 선택하여 시뮬레이션을 시작하세요.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        const R = 0.08206;
+        let mode = 'boyle'; // boyle, charles, avogadro, integrated
+        let targetVarInt = 'P'; // Used only in integrated mode
+        
+        // Physics State
+        let state = { P: 1.0, V: 24.6, T: 300, n: 1.0 };
+        
+        // --- UI Elements ---
+        const sliders = {
+            P: document.getElementById('slider-P'),
+            V: document.getElementById('slider-V'),
+            T: document.getElementById('slider-T'),
+            n: document.getElementById('slider-n')
+        };
+        const displays = {
+            P: document.getElementById('val-P'),
+            V: document.getElementById('val-V'),
+            T: document.getElementById('val-T'),
+            n: document.getElementById('val-n')
+        };
+        const cards = {
+            P: document.getElementById('card-P'),
+            V: document.getElementById('card-V'),
+            T: document.getElementById('card-T'),
+            n: document.getElementById('card-n')
+        };
+        const badges = {
+            P: document.getElementById('badge-P'),
+            V: document.getElementById('badge-V'),
+            T: document.getElementById('badge-T'),
+            n: document.getElementById('badge-n')
+        };
+
+        const targetSelector = document.getElementById('target-selector');
+        const mathFormula = document.getElementById('math-formula');
+        const descText = document.getElementById('desc-text');
+        const chartTitle = document.getElementById('chart-title');
+        const gaugeP = document.getElementById('gauge-P');
+
+        // --- Chart.js Setup ---
+        let lawChart;
+        function initChart() {
+            const ctx = document.getElementById('lawChart').getContext('2d');
+            lawChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '이론적 곡선',
+                            data: [],
+                            type: 'line',
+                            borderColor: '#94a3b8',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: '현재 상태',
+                            data: [{x:0, y:0}],
+                            backgroundColor: '#f59e0b',
+                            borderColor: '#b45309',
+                            borderWidth: 2,
+                            pointRadius: 8,
+                            pointHoverRadius: 10
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: { duration: 100 },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'X', font: {weight:'bold'} } },
+                        y: { title: { display: true, text: 'Y', font: {weight:'bold'} } }
+                    }
+                }
+            });
+        }
+        initChart();
+
+        // --- Canvas Animation Setup ---
+        const canvas = document.getElementById('simCanvas');
+        const ctxCanvas = canvas.getContext('2d');
+        let particles = [];
+
+        class Particle {
+            constructor(yMax) {
+                this.radius = 3;
+                this.x = 20 + Math.random() * 160;
+                this.y = (250 - yMax) + this.radius + Math.random() * (yMax - 2 * this.radius);
+                const angle = Math.random() * 2 * Math.PI;
+                this.vx = Math.cos(angle);
+                this.vy = Math.sin(angle);
+            }
+            update(speed, yMax) {
+                this.x += this.vx * speed;
+                this.y += this.vy * speed;
+                
+                const topBound = 250 - yMax + this.radius;
+                const bottomBound = 250 - this.radius;
+                const leftBound = 10 + this.radius;
+                const rightBound = 190 - this.radius;
+
+                if (this.x <= leftBound) { this.x = leftBound; this.vx = Math.abs(this.vx); }
+                if (this.x >= rightBound) { this.x = rightBound; this.vx = -Math.abs(this.vx); }
+                if (this.y <= topBound) { this.y = topBound; this.vy = Math.abs(this.vy); }
+                if (this.y >= bottomBound) { this.y = bottomBound; this.vy = -Math.abs(this.vy); }
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function animateCanvas() {
+            ctxCanvas.clearRect(0, 0, 200, 250);
+
+            // Map Volume to Height (V: 5~100 -> Height: 20~200)
+            let vHeight = 20 + (state.V / 100) * 180;
+            const topY = 250 - vHeight;
+
+            // Draw Cylinder
+            ctxCanvas.fillStyle = '#f8fafc';
+            ctxCanvas.fillRect(10, topY, 180, vHeight);
+            ctxCanvas.strokeStyle = '#94a3b8';
+            ctxCanvas.lineWidth = 4;
+            ctxCanvas.beginPath();
+            ctxCanvas.moveTo(10, 10); ctxCanvas.lineTo(10, 250); ctxCanvas.lineTo(190, 250); ctxCanvas.lineTo(190, 10);
+            ctxCanvas.stroke();
+
+            // Draw Piston
+            ctxCanvas.fillStyle = '#64748b';
+            ctxCanvas.fillRect(12, topY - 10, 176, 10);
+            ctxCanvas.fillStyle = '#cbd5e1';
+            ctxCanvas.fillRect(96, 10, 8, topY - 10);
+
+            // Particles logic
+            const targetPCount = Math.min(100, Math.floor(state.n * 20));
+            while(particles.length < targetPCount) particles.push(new Particle(vHeight));
+            while(particles.length > targetPCount) particles.pop();
+
+            const speed = Math.sqrt(state.T / 300) * 3;
+            
+            // Color based on T
+            const r = Math.min(255, Math.floor((state.T - 100)/900 * 255));
+            const b = 255 - r;
+            ctxCanvas.fillStyle = `rgb(${r}, 50, ${b})`;
+
+            particles.forEach(p => {
+                p.update(speed, vHeight);
+                p.draw(ctxCanvas);
+            });
+
+            // Weights on piston (based on Pressure)
+            const numWeights = Math.min(5, Math.ceil(state.P / 2));
+            ctxCanvas.fillStyle = '#1e293b';
+            for(let i=0; i<numWeights; i++){
+                ctxCanvas.fillRect(100 - 15, topY - 10 - (i+1)*12, 30, 10);
+            }
+
+            requestAnimationFrame(animateCanvas);
+        }
+        animateCanvas();
+
+        // --- Core Logic ---
+        function updateMathJax(formula) {
+            mathFormula.innerHTML = formula;
+            if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+                MathJax.typesetPromise([mathFormula]);
+            }
+        }
+
+        function setCardState(varName, cState) { // cState: 'locked', 'active', 'target'
+            sliders[varName].disabled = (cState !== 'active');
+            cards[varName].className = `var-card border rounded-lg p-4 shadow-sm var-${cState}`;
+            
+            let badgeText = '';
+            let badgeColor = '';
+            if (cState === 'locked') { badgeText = '🔒 고정 (Constant)'; badgeColor = 'bg-slate-200 text-slate-600'; }
+            else if (cState === 'active') { badgeText = '↕ 조작 (Variable)'; badgeColor = 'bg-blue-100 text-blue-700'; }
+            else if (cState === 'target') { badgeText = '🎯 종속 (Calculated)'; badgeColor = 'bg-amber-100 text-amber-700'; }
+            
+            badges[varName].className = `text-[10px] px-2 py-0.5 rounded-full font-bold ${badgeColor}`;
+            badges[varName].innerText = badgeText;
+        }
+
+        function updateDisplays() {
+            // Check bounds to prevent weird values visually
+            if(state.P < 0.1) state.P = 0.1; if(state.P > 100) state.P = 100;
+            if(state.V < 5) state.V = 5; if(state.V > 200) state.V = 200;
+
+            displays.P.innerText = state.P.toFixed(2) + ' atm';
+            displays.V.innerText = state.V.toFixed(1) + ' L';
+            displays.T.innerText = state.T.toFixed(0) + ' K';
+            displays.n.innerText = state.n.toFixed(2) + ' mol';
+
+            sliders.P.value = state.P;
+            sliders.V.value = state.V;
+            sliders.T.value = state.T;
+            sliders.n.value = state.n;
+
+            gaugeP.innerText = state.P.toFixed(1) + ' atm';
+        }
+
+        function updateChartData() {
+            let theoreticalData = [];
+            let currentPt = {x: 0, y: 0};
+
+            if (mode === 'boyle') {
+                // P vs V
+                chartTitle.innerText = "부피(V) vs 압력(P) 그래프";
+                lawChart.options.scales.x.title.text = '부피 V (L)';
+                lawChart.options.scales.y.title.text = '압력 P (atm)';
+                lawChart.options.scales.x.min = 0; lawChart.options.scales.x.max = 100;
+                lawChart.options.scales.y.min = 0; lawChart.options.scales.y.max = 15;
+                const k = state.n * R * state.T;
+                for(let v=5; v<=100; v+=5) theoreticalData.push({x: v, y: k/v});
+                currentPt = {x: state.V, y: state.P};
+            } 
+            else if (mode === 'charles') {
+                // V vs T
+                chartTitle.innerText = "온도(T) vs 부피(V) 그래프";
+                lawChart.options.scales.x.title.text = '온도 T (K)';
+                lawChart.options.scales.y.title.text = '부피 V (L)';
+                lawChart.options.scales.x.min = 0; lawChart.options.scales.x.max = 1000;
+                lawChart.options.scales.y.min = 0; lawChart.options.scales.y.max = 100;
+                const b = (state.n * R) / state.P;
+                for(let t=0; t<=1000; t+=100) theoreticalData.push({x: t, y: b*t});
+                currentPt = {x: state.T, y: state.V};
+            }
+            else if (mode === 'avogadro') {
+                // V vs n
+                chartTitle.innerText = "입자 수(n) vs 부피(V) 그래프";
+                lawChart.options.scales.x.title.text = '입자 수 n (mol)';
+                lawChart.options.scales.y.title.text = '부피 V (L)';
+                lawChart.options.scales.x.min = 0; lawChart.options.scales.x.max = 5;
+                lawChart.options.scales.y.min = 0; lawChart.options.scales.y.max = 150;
+                const a = (R * state.T) / state.P;
+                for(let n=0; n<=5; n+=0.5) theoreticalData.push({x: n, y: a*n});
+                currentPt = {x: state.n, y: state.V};
+            }
+            else if (mode === 'integrated') {
+                // Y=PV, X=nRT Linear comparison
+                chartTitle.innerText = "nRT vs PV (이상 기체 상태 방정식)";
+                lawChart.options.scales.x.title.text = 'nRT 값';
+                lawChart.options.scales.y.title.text = 'PV 값';
+                lawChart.options.scales.x.min = 0; lawChart.options.scales.x.max = 300;
+                lawChart.options.scales.y.min = 0; lawChart.options.scales.y.max = 300;
+                for(let i=0; i<=300; i+=50) theoreticalData.push({x: i, y: i}); // y=x line
+                currentPt = {x: state.n * R * state.T, y: state.P * state.V};
+            }
+
+            lawChart.data.datasets[0].data = theoreticalData;
+            lawChart.data.datasets[1].data = [currentPt];
+            lawChart.update();
+        }
+
+        function setMode(newMode) {
+            mode = newMode;
+            
+            // Tab UI update
+            ['boyle', 'charles', 'avogadro', 'integrated'].forEach(m => {
+                const btn = document.getElementById(`tab-${m}`);
+                if(m === mode) { btn.className = "tab-btn active px-6 py-3 text-sm md:text-base whitespace-nowrap"; }
+                else { btn.className = "tab-btn inactive px-6 py-3 text-sm md:text-base whitespace-nowrap"; }
+            });
+
+            targetSelector.classList.add('hidden');
+
+            if (mode === 'boyle') {
+                // T, n fixed. V active, P target.
+                state.T = 300; state.n = 1.0; state.V = 24.6; state.P = 1.0;
+                setCardState('T', 'locked'); setCardState('n', 'locked');
+                setCardState('V', 'active'); setCardState('P', 'target');
+                updateMathJax(`\\( P = \\frac{k}{V} \\quad \\text{(} T, n \\text{ 일정)} \\)`);
+                descText.innerHTML = "<strong>보일의 법칙 (Boyle's Law):</strong> 온도와 입자 수가 일정할 때, 조작 변인인 부피(V)를 변화시키면 기체의 압력(P)은 부피에 <strong>반비례</strong>하여 변합니다. 부피 슬라이더를 움직여보세요.";
+            } 
+            else if (mode === 'charles') {
+                // P, n fixed. T active, V target.
+                state.P = 1.0; state.n = 1.0; state.T = 300; state.V = 24.6;
+                setCardState('P', 'locked'); setCardState('n', 'locked');
+                setCardState('T', 'active'); setCardState('V', 'target');
+                updateMathJax(`\\( V = bT \\quad \\text{(} P, n \\text{ 일정)} \\)`);
+                descText.innerHTML = "<strong>샤를의 법칙 (Charles's Law):</strong> 압력과 입자 수가 일정할 때, 조작 변인인 온도(T)를 변화시키면 기체의 부피(V)는 절대 온도에 <strong>정비례</strong>하여 팽창/수축합니다. 온도 슬라이더를 움직여보세요.";
+            }
+            else if (mode === 'avogadro') {
+                // P, T fixed. n active, V target.
+                state.P = 1.0; state.T = 300; state.n = 1.0; state.V = 24.6;
+                setCardState('P', 'locked'); setCardState('T', 'locked');
+                setCardState('n', 'active'); setCardState('V', 'target');
+                updateMathJax(`\\( V = a n \\quad \\text{(} P, T \\text{ 일정)} \\)`);
+                descText.innerHTML = "<strong>아보가드로의 법칙 (Avogadro's Law):</strong> 온도와 압력이 일정할 때, 조작 변인인 입자 수(n)를 변화시키면 부피(V)는 입자 수에 <strong>정비례</strong>하여 변합니다. 입자 수 슬라이더를 조작해보세요.";
+            }
+            else if (mode === 'integrated') {
+                targetSelector.classList.remove('hidden');
+                setIntegratedTarget('P'); // Default
+                descText.innerHTML = "<strong>이상 기체 상태 방정식 (Ideal Gas Law):</strong> 세 가지 법칙을 모두 통합한 \(PV=nRT\) 방정식입니다. 원하는 계산 목표 변수를 선택하고 나머지 세 변수를 자유롭게 조작하여 전체 방정식이 항상 균형을 이룸을 확인하세요.";
+            }
+
+            updateDisplays();
+            updateChartData();
+        }
+
+        function setIntegratedTarget(tVar) {
+            targetVarInt = tVar;
+            ['P', 'V', 'T', 'n'].forEach(v => {
+                if(v === tVar) setCardState(v, 'target');
+                else setCardState(v, 'active');
+            });
+            
+            let formula = '';
+            if(tVar === 'P') formula = `\\( P = \\frac{nRT}{V} \\)`;
+            if(tVar === 'V') formula = `\\( V = \\frac{nRT}{P} \\)`;
+            if(tVar === 'T') formula = `\\( T = \\frac{PV}{nR} \\)`;
+            if(tVar === 'n') formula = `\\( n = \\frac{PV}{RT} \\)`;
+            updateMathJax(formula);
+            
+            updateDisplays();
+            updateChartData();
+        }
+
+        function updateFromSlider(changedVar) {
+            const val = parseFloat(sliders[changedVar].value);
+            state[changedVar] = val;
+
+            // Recalculate Target Variable based on mode
+            if (mode === 'boyle') {
+                state.P = (state.n * R * state.T) / state.V;
+            } else if (mode === 'charles') {
+                state.V = (state.n * R * state.T) / state.P;
+            } else if (mode === 'avogadro') {
+                state.V = (state.n * R * state.T) / state.P;
+            } else if (mode === 'integrated') {
+                if (targetVarInt === 'P') state.P = (state.n * R * state.T) / state.V;
+                if (targetVarInt === 'V') state.V = (state.n * R * state.T) / state.P;
+                if (targetVarInt === 'T') state.T = (state.P * state.V) / (state.n * R);
+                if (targetVarInt === 'n') state.n = (state.P * state.V) / (R * state.T);
+            }
+
+            updateDisplays();
+            updateChartData();
+        }
+
+        // Initialize default mode
+        setMode('boyle');
+
+    </script>
+</body>
+</html>
