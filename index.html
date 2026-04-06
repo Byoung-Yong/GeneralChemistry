@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>일반화학 5장 기체 시뮬레이션</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%234e7dbc'/><circle cx='20' cy='40' r='6' fill='%23ffffff' opacity='0.9'/><circle cx='44' cy='24' r='8' fill='%23ffffff' opacity='0.8'/><circle cx='34' cy='46' r='4' fill='%23ffffff' opacity='0.7'/><circle cx='24' cy='20' r='5' fill='%23ffffff' opacity='0.85'/></svg>">
+  <style>
+    :root {
+      --bg: #eef4fb;
+      --panel: rgba(255, 255, 255, 0.92);
+      --text: #17263c;
+      --muted: #5d7087;
+      --line: rgba(76, 106, 141, 0.16);
+      --shadow: 0 20px 45px rgba(24, 42, 69, 0.12);
+      --hero-a: #5d84bb;
+      --hero-b: #34567f;
+      --card-a: #f8fbff;
+      --card-b: #ecf3fb;
+      --accent-1: #4e7dbc;
+      --accent-2: #e29d18;
+      --accent-3: #2d7a66;
+      --accent-4: #8b5cf6;
+      --accent-5: #d05a44;
+      --accent-6: #2f6fb0;
+      --accent-7: #3e8db6;
+      --accent-8: #4966a8;
+      --accent-9: #5b7fcb;
+      --accent-10: #5b79a8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(93, 132, 187, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(226, 157, 24, 0.12), transparent 22%),
+        linear-gradient(180deg, #eef4fb 0%, #f8fbfe 100%);
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      padding: 34px 48px;
+      border-radius: 28px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--hero-a) 0%, #4b73a7 48%, var(--hero-b) 100%);
+      box-shadow: var(--shadow);
+      min-height: 210px;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .hero-copy {
+      width: 100%;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(4rem, 7vw, 6.2rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 260px;
+      padding: 22px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, var(--card-a) 0%, var(--card-b) 100%);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%);
+      pointer-events: none;
+    }
+
+    .chapter {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(76, 106, 141, 0.12);
+      color: color-mix(in srgb, var(--accent) 75%, #21344f);
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .card h3 {
+      margin: 16px 0 8px;
+      font-size: 1.42rem;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(76, 106, 141, 0.12);
+      color: #395273;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 132px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      text-decoration: none;
+      font-weight: 800;
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .btn.primary {
+      color: #fff;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 88%, white), color-mix(in srgb, var(--accent) 58%, #243a5a));
+      box-shadow: 0 12px 20px color-mix(in srgb, var(--accent) 26%, transparent);
+    }
+
+    .btn.secondary {
+      color: #2b4567;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(76, 106, 141, 0.14);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 14px;
+      }
+
+      .hero {
+        padding: 26px 24px;
+        min-height: 170px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">GENERAL CHEMISTRY • CHAPTER 5</p>
+        <h1>기체</h1>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card" style="--accent: var(--accent-1);">
+        <span class="chapter">5.1 Boyle</span>
+        <h3>보일의 법칙</h3>
+        <p>압력과 부피의 반비례 관계를 U자관 실험과 그래프로 확인합니다.</p>
+        <div class="meta">
+          <span class="pill">압력-부피</span>
+          <span class="pill">PV = 일정</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_1_Boyle.html">열기</a>
+          <a class="btn secondary" href="5_1_Boyle.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-2);">
+        <span class="chapter">5.2 Charles</span>
+        <h3>샤를의 법칙</h3>
+        <p>온도 변화에 따른 기체 부피 변화를 시각적으로 살펴봅니다.</p>
+        <div class="meta">
+          <span class="pill">온도-부피</span>
+          <span class="pill">V ∝ T</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_2_Charles.html">열기</a>
+          <a class="btn secondary" href="5_2_Charles.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-3);">
+        <span class="chapter">5.3 Dalton</span>
+        <h3>돌턴의 부분 압력 법칙</h3>
+        <p>혼합 기체의 전체 압력과 부분 압력의 합 관계를 확인합니다.</p>
+        <div class="meta">
+          <span class="pill">혼합 기체</span>
+          <span class="pill">Ptotal = ΣPi</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_3_PartialPressure.html">열기</a>
+          <a class="btn secondary" href="5_3_PartialPressure.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-4);">
+        <span class="chapter">5.4 KMT</span>
+        <h3>기체 분자 운동론</h3>
+        <p>입자 운동과 충돌을 통해 이상기체 가정을 연결해 봅니다.</p>
+        <div class="meta">
+          <span class="pill">분자 운동</span>
+          <span class="pill">이상 기체</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_4_KMT.html">열기</a>
+          <a class="btn secondary" href="5_4_KMT.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-5);">
+        <span class="chapter">5.5 Real Gas</span>
+        <h3>실제 기체</h3>
+        <p>이상기체와 실제 기체의 차이를 비교하며 보정 개념을 확인합니다.</p>
+        <div class="meta">
+          <span class="pill">실제 기체</span>
+          <span class="pill">van der Waals</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_5_RealGas.html">열기</a>
+          <a class="btn secondary" href="5_5_RealGas.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-6);">
+        <span class="chapter">5.6 Effusion & Diffusion</span>
+        <h3>분출과 확산</h3>
+        <p>질량 차이에 따른 분출과 확산 속도 변화를 Graham 법칙과 함께 봅니다.</p>
+        <div class="meta">
+          <span class="pill">분출</span>
+          <span class="pill">확산</span>
+          <span class="pill">Graham</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_6_EffusionDiffusion.html">열기</a>
+          <a class="btn secondary" href="5_6_EffusionDiffusion.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-7);">
+        <span class="chapter">5.7 Avogadro</span>
+        <h3>아보가드로의 법칙</h3>
+        <p>일정한 온도와 압력에서 몰수와 부피의 비례 관계를 확인합니다.</p>
+        <div class="meta">
+          <span class="pill">몰수-부피</span>
+          <span class="pill">V ∝ n</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_7_Avogadro.html">열기</a>
+          <a class="btn secondary" href="5_7_Avogadro.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-8);">
+        <span class="chapter">5.8 PV=nRT</span>
+        <h3>통합 기체 법칙</h3>
+        <p>P, V, T, n 사이의 관계를 하나의 도구로 묶어 함께 확인합니다.</p>
+        <div class="meta">
+          <span class="pill">PV = nRT</span>
+          <span class="pill">통합 보기</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_8_PVnRT.html">열기</a>
+          <a class="btn secondary" href="5_8_PVnRT.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-9);">
+        <span class="chapter">5.9 Maxwell-Boltzmann</span>
+        <h3>맥스웰-볼츠만 속력 분포</h3>
+        <p>온도와 몰질량이 속력 분포 곡선에 미치는 영향을 비교합니다.</p>
+        <div class="meta">
+          <span class="pill">속력 분포</span>
+          <span class="pill">KMT 확장</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_9_MaxwellDistribution.html">열기</a>
+          <a class="btn secondary" href="5_9_MaxwellDistribution.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-10);">
+        <span class="chapter">5.10 Critical Point</span>
+        <h3>액화와 임계점</h3>
+        <p>압력과 온도, 부피 변화에 따라 액화와 임계점을 시각적으로 살펴봅니다.</p>
+        <div class="meta">
+          <span class="pill">액화</span>
+          <span class="pill">Critical Point</span>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="5_10_CriticlaPoint.html">열기</a>
+          <a class="btn secondary" href="5_10_CriticlaPoint.html" target="_blank" rel="noopener noreferrer">새 탭</a>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
