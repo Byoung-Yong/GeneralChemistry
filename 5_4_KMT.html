@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 기체 분자 운동론</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 영문 폰트명만 사용 */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid #cbd5e1;
+            overflow: hidden;
+        }
+
+        /* 슬라이더 공통 커스텀 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* 개별 슬라이더 썸 색상 */
+        .slider-blue::-webkit-slider-thumb { background: #3b82f6; }
+        .slider-orange::-webkit-slider-thumb { background: #f97316; }
+        .slider-vol::-webkit-slider-thumb { background: #10b981; border-color: #047857; }
+        
+        .slider-temp { background: linear-gradient(to right, #60a5fa, #ef4444) !important; }
+        .slider-temp::-webkit-slider-thumb { background: #ffffff; border-color: #ef4444; }
+
+        /* 충돌 이펙트 애니메이션 오버레이 */
+        .collision-flash {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            pointer-events: none;
+            box-shadow: inset 0 0 0 0px rgba(0,0,0,0);
+            transition: box-shadow 0.1s ease-out;
+            border-right: 4px solid transparent;
+        }
+        .collision-flash.active-a {
+            box-shadow: inset 0 0 15px 2px rgba(59, 130, 246, 0.4);
+        }
+        .collision-flash.active-b {
+            box-shadow: inset 0 0 15px 2px rgba(249, 115, 22, 0.4);
+        }
+        .collision-flash.active-both {
+            box-shadow: inset 0 0 15px 2px rgba(139, 92, 246, 0.4);
+        }
+    </style>
+</head>
+<body class="theme-page text-slate-800 antialiased p-4 md:p-8">
+
+    <div class="theme-shell max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <header class="theme-hero bg-indigo-800 text-white p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">기체 분자 운동론 (Kinetic Molecular Theory)</h1>
+                    <p class="text-indigo-200 text-lg">입자의 무작위 운동, 온도, 부피가 충돌 횟수(압력)에 미치는 영향</p>
+                </div>
+                <div class="theme-hero-box hidden md:block text-right">
+                    <p class="text-xl font-bold text-yellow-300">\( P_{total} = P_A + P_B \)</p>
+                    <p class="text-sm text-indigo-200 mt-1">압력(P) \(\propto\) 단위 면적당 벽면 충돌 빈도</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="theme-content flex flex-col lg:flex-row p-6 gap-8">
+            <!-- Left: Simulation Canvas -->
+            <div class="w-full lg:w-5/12 flex flex-col gap-4">
+                
+                <div class="theme-panel bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm mb-2">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 border-b pb-2">기체 상태 설정</h2>
+                    
+                    <!-- Volume Slider -->
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-700 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                                부피 (Volume, V)
+                            </label>
+                            <span id="display-V" class="font-mono text-emerald-700 font-bold bg-emerald-100 px-2 py-1 rounded">100 %</span>
+                        </div>
+                        <input type="range" id="slider-V" min="30" max="100" value="100" class="slider-vol">
+                    </div>
+
+                    <!-- Temperature Slider -->
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-700 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                                </svg>
+                                온도 (Temperature, T)
+                            </label>
+                            <span id="display-T" class="font-mono text-red-700 font-bold bg-red-100 px-2 py-1 rounded">300 K</span>
+                        </div>
+                        <input type="range" id="slider-T" min="50" max="600" value="300" class="slider-temp">
+                    </div>
+
+                    <!-- Particle A Slider -->
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-blue-600 flex items-center gap-2">
+                                <span class="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
+                                입자 A (파란색)
+                            </label>
+                            <span id="display-nA" class="font-mono text-blue-700 font-bold bg-blue-100 px-2 py-1 rounded">50 개</span>
+                        </div>
+                        <input type="range" id="slider-nA" min="0" max="150" value="50" class="slider-blue">
+                    </div>
+
+                    <!-- Particle B Slider -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-orange-600 flex items-center gap-2">
+                                <span class="inline-block w-3 h-3 rounded-full bg-orange-500"></span>
+                                입자 B (주황색)
+                            </label>
+                            <span id="display-nB" class="font-mono text-orange-700 font-bold bg-orange-100 px-2 py-1 rounded">50 개</span>
+                        </div>
+                        <input type="range" id="slider-nB" min="0" max="150" value="50" class="slider-orange">
+                    </div>
+                </div>
+
+                <!-- Canvas Box -->
+                <div class="theme-canvas-light canvas-container w-full aspect-square relative">
+                    <canvas id="gasCanvas" class="bg-white"></canvas>
+                    <div id="flash-overlay" class="collision-flash"></div>
+                </div>
+                <p class="text-xs text-slate-500 text-center mt-1">* 오른쪽 벽면은 피스톤입니다. 부피가 감소하면 충돌 빈도가 증가합니다.</p>
+            </div>
+
+            <!-- Right: Data, Gauges, and Charts -->
+            <div class="w-full lg:w-7/12 flex flex-col gap-6">
+                
+                <!-- Live Collision Data (Pressure) -->
+                <div class="grid grid-cols-3 gap-4">
+                    <!-- PA -->
+                    <div class="theme-metric-blue bg-blue-50 p-4 rounded-xl border border-blue-200 text-center shadow-sm">
+                        <p class="text-sm font-bold text-blue-800 mb-1">입자 A 부분압 (\( P_A \))</p>
+                        <p class="text-3xl font-mono font-bold text-blue-600"><span id="metric-pA">0</span></p>
+                        <p class="text-xs text-blue-500 mt-1">충돌 횟수 / 초</p>
+                    </div>
+                    
+                    <!-- PB -->
+                    <div class="theme-metric-orange bg-orange-50 p-4 rounded-xl border border-orange-200 text-center shadow-sm">
+                        <p class="text-sm font-bold text-orange-800 mb-1">입자 B 부분압 (\( P_B \))</p>
+                        <p class="text-3xl font-mono font-bold text-orange-600"><span id="metric-pB">0</span></p>
+                        <p class="text-xs text-orange-500 mt-1">충돌 횟수 / 초</p>
+                    </div>
+
+                    <!-- P_Total -->
+                    <div class="theme-metric-indigo bg-indigo-50 p-4 rounded-xl border border-indigo-200 text-center shadow-sm relative overflow-hidden">
+                        <div class="absolute inset-0 bg-indigo-100 opacity-50"></div>
+                        <div class="relative z-10">
+                            <p class="text-sm font-bold text-indigo-900 mb-1">전체 압력 (\( P_{tot} \))</p>
+                            <p class="text-4xl font-mono font-extrabold text-indigo-700"><span id="metric-pTotal">0</span></p>
+                            <p class="text-xs text-indigo-500 mt-1">총 충돌 횟수 / 초</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formula Explanation -->
+                <div class="theme-panel bg-white p-5 rounded-lg border border-slate-200 shadow-sm text-center">
+                    <p class="text-lg font-mono text-slate-700">
+                        <span class="text-indigo-700 font-bold" id="eq-tot">0</span> 
+                        <span class="text-slate-400 mx-2">=</span> 
+                        <span class="text-blue-600 font-bold" id="eq-a">0</span> 
+                        <span class="text-slate-400 mx-2">+</span> 
+                        <span class="text-orange-600 font-bold" id="eq-b">0</span>
+                    </p>
+                </div>
+
+                <!-- Bar Chart -->
+                <div class="theme-panel bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex-1 min-h-[250px]">
+                    <canvas id="pressureChart"></canvas>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Simulation Physics & State ---
+        let particles = [];
+        let nA = 50;
+        let nB = 50;
+        let currentT = 300; 
+        let currentV = 100; // 30% ~ 100%
+
+        // Collision tracking (Rolling window of 60 frames ~ 1 second)
+        const HISTORY_FRAMES = 60;
+        const collisionsAHistory = new Array(HISTORY_FRAMES).fill(0);
+        const collisionsBHistory = new Array(HISTORY_FRAMES).fill(0);
+        let currentFrameIndex = 0;
+        
+        let pressureA = 0;
+        let pressureB = 0;
+
+        // Canvas Setup
+        const canvas = document.getElementById('gasCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.canvas-container');
+        const flashOverlay = document.getElementById('flash-overlay');
+        
+        let cw, ch, simWidth;
+
+        function resizeCanvas() {
+            cw = container.clientWidth;
+            ch = container.clientHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+            updateSimWidth();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateSimWidth() {
+            simWidth = Math.max(cw * (currentV / 100), 40); // minimum width safeguard
+            flashOverlay.style.width = simWidth + 'px';
+            flashOverlay.style.borderRightColor = '#94a3b8'; // slate-400 piston line
+        }
+
+        // Particle Class
+        class Particle {
+            constructor(type) {
+                this.type = type; // 'A' or 'B'
+                this.radius = 5;
+                
+                // Spawn within the current volume
+                const spawnWidth = simWidth || cw;
+                this.x = this.radius + Math.random() * (spawnWidth - 2 * this.radius);
+                this.y = this.radius + Math.random() * (ch - 2 * this.radius);
+                
+                // Base direction
+                const angle = Math.random() * 2 * Math.PI;
+                this.dirX = Math.cos(angle);
+                this.dirY = Math.sin(angle);
+
+                this.color = type === 'A' ? '#3b82f6' : '#f97316'; 
+            }
+
+            update(frameCollisions) {
+                // v ∝ √T 로직 (기본속도 8 유지)
+                const speed = Math.sqrt(currentT / 300) * 8;
+
+                this.x += this.dirX * speed;
+                this.y += this.dirY * speed;
+
+                let hitWall = false;
+
+                // X축 벽 충돌 및 피스톤 이동 보정
+                if (this.x <= this.radius) {
+                    this.x = this.radius;
+                    this.dirX = Math.abs(this.dirX); // 무조건 오른쪽으로 튕겨냄
+                    hitWall = true;
+                } else if (this.x >= simWidth - this.radius) {
+                    this.x = simWidth - this.radius; // 피스톤이 밀고 들어올 경우 밖으로 나가지 않게 보정
+                    this.dirX = -Math.abs(this.dirX); // 무조건 왼쪽으로 튕겨냄
+                    hitWall = true;
+                }
+
+                // Y축 벽 충돌
+                if (this.y <= this.radius) {
+                    this.y = this.radius;
+                    this.dirY = Math.abs(this.dirY); // 무조건 아래로 튕겨냄
+                    hitWall = true;
+                } else if (this.y >= ch - this.radius) {
+                    this.y = ch - this.radius;
+                    this.dirY = -Math.abs(this.dirY); // 무조건 위로 튕겨냄
+                    hitWall = true;
+                }
+
+                // 충돌 카운트
+                if (hitWall) {
+                    if (this.type === 'A') frameCollisions.A++;
+                    if (this.type === 'B') frameCollisions.B++;
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // Particle Management
+        function adjustParticles() {
+            let currentA = particles.filter(p => p.type === 'A').length;
+            while (currentA < nA) { particles.push(new Particle('A')); currentA++; }
+            while (currentA > nA) { 
+                const idx = particles.findIndex(p => p.type === 'A');
+                if(idx > -1) particles.splice(idx, 1); 
+                currentA--; 
+            }
+
+            let currentB = particles.filter(p => p.type === 'B').length;
+            while (currentB < nB) { particles.push(new Particle('B')); currentB++; }
+            while (currentB > nB) { 
+                const idx = particles.findIndex(p => p.type === 'B');
+                if(idx > -1) particles.splice(idx, 1); 
+                currentB--; 
+            }
+        }
+
+        // --- Chart.js Setup ---
+        const ctxChart = document.getElementById('pressureChart').getContext('2d');
+        const pressureChart = new Chart(ctxChart, {
+            type: 'bar',
+            data: {
+                labels: ['입자 A 부분압', '입자 B 부분압', '전체 압력'],
+                datasets: [{
+                    label: '압력 (충돌 횟수/초)',
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)', 
+                        'rgba(249, 115, 22, 0.8)', 
+                        'rgba(67, 56, 202, 0.8)'  
+                    ],
+                    borderColor: [
+                        'rgb(29, 78, 216)',
+                        'rgb(194, 65, 12)',
+                        'rgb(49, 46, 129)'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 100 },
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        suggestedMax: 800, // 기본 800 유지하되 넘으면 자동 스케일링 허용
+                        title: { display: true, text: '충돌 횟수 / 초', font: { weight: 'bold' } }
+                    }
+                }
+            }
+        });
+
+        // --- DOM Elements ---
+        const sliderA = document.getElementById('slider-nA');
+        const sliderB = document.getElementById('slider-nB');
+        const sliderT = document.getElementById('slider-T');
+        const sliderV = document.getElementById('slider-V');
+        
+        const dispA = document.getElementById('display-nA');
+        const dispB = document.getElementById('display-nB');
+        const dispT = document.getElementById('display-T');
+        const dispV = document.getElementById('display-V');
+        
+        const metricA = document.getElementById('metric-pA');
+        const metricB = document.getElementById('metric-pB');
+        const metricTot = document.getElementById('metric-pTotal');
+        
+        const eqA = document.getElementById('eq-a');
+        const eqB = document.getElementById('eq-b');
+        const eqTot = document.getElementById('eq-tot');
+
+        // Slider Events
+        sliderA.addEventListener('input', (e) => {
+            nA = parseInt(e.target.value);
+            dispA.innerText = `${nA} 개`;
+            adjustParticles();
+        });
+
+        sliderB.addEventListener('input', (e) => {
+            nB = parseInt(e.target.value);
+            dispB.innerText = `${nB} 개`;
+            adjustParticles();
+        });
+
+        sliderT.addEventListener('input', (e) => {
+            currentT = parseInt(e.target.value);
+            dispT.innerText = `${currentT} K`;
+        });
+
+        sliderV.addEventListener('input', (e) => {
+            currentV = parseInt(e.target.value);
+            dispV.innerText = `${currentV} %`;
+            updateSimWidth();
+        });
+
+        // --- Init ---
+        resizeCanvas();
+        adjustParticles();
+
+        // --- Main Animation Loop ---
+        function animate() {
+            // Draw background logic for piston (Volume)
+            ctx.fillStyle = '#f8fafc'; // background color inside volume
+            ctx.fillRect(0, 0, simWidth, ch);
+            
+            // Draw dead space outside piston
+            ctx.fillStyle = '#cbd5e1'; 
+            ctx.fillRect(simWidth, 0, cw - simWidth, ch);
+            
+            // Draw piston surface pattern
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(simWidth, 0, 4, ch); // thick line
+
+            let frameCollisions = { A: 0, B: 0 };
+
+            // Update & Draw
+            particles.forEach(p => {
+                p.update(frameCollisions);
+                p.draw(ctx);
+            });
+
+            // Update History
+            collisionsAHistory[currentFrameIndex] = frameCollisions.A;
+            collisionsBHistory[currentFrameIndex] = frameCollisions.B;
+            currentFrameIndex = (currentFrameIndex + 1) % HISTORY_FRAMES;
+
+            // Flash effect
+            if (frameCollisions.A > 0 && frameCollisions.B > 0) {
+                flashOverlay.className = 'collision-flash active-both';
+            } else if (frameCollisions.A > 0) {
+                flashOverlay.className = 'collision-flash active-a';
+            } else if (frameCollisions.B > 0) {
+                flashOverlay.className = 'collision-flash active-b';
+            } else {
+                flashOverlay.className = 'collision-flash';
+            }
+
+            // Calculate Pressure
+            pressureA = collisionsAHistory.reduce((a, b) => a + b, 0);
+            pressureB = collisionsBHistory.reduce((a, b) => a + b, 0);
+            let pTotal = pressureA + pressureB;
+
+            // Update UI
+            metricA.innerText = pressureA;
+            metricB.innerText = pressureB;
+            metricTot.innerText = pTotal;
+
+            eqA.innerText = pressureA;
+            eqB.innerText = pressureB;
+            eqTot.innerText = pTotal;
+
+            // Update Chart
+            if (currentFrameIndex % 5 === 0) {
+                pressureChart.data.datasets[0].data = [pressureA, pressureB, pTotal];
+                pressureChart.update();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start
+        animate();
+
+    </script>
+</body>
+</html>

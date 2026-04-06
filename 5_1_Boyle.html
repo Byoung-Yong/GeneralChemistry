@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 보일의 법칙 (J자관 실험)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 폰트 설정 (영문명만 사용) */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .data-table th, .data-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .data-table tr.active {
+            background-color: #eff6ff;
+            font-weight: bold;
+            color: #1d4ed8;
+            transition: background-color 0.3s ease;
+        }
+
+        /* 버튼 애니메이션 */
+        .btn-add {
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .btn-add:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .btn-add:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="theme-page text-gray-800 antialiased p-4 md:p-8">
+
+    <div class="theme-shell max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+        <!-- Header -->
+        <header class="theme-hero bg-indigo-700 text-white p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">보일의 법칙 (Boyle's Law)</h1>
+                    <p class="text-indigo-100 text-lg">J자관 수은 주입 실험: 일정한 온도에서 기체의 압력과 부피의 관계</p>
+                </div>
+                <div class="theme-hero-box hidden md:block text-right">
+                    <p class="text-xl font-bold text-yellow-300">\( PV = k \)</p>
+                    <p class="text-sm text-indigo-200">\( P \propto 1/V \)</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="theme-content flex flex-col lg:flex-row p-6 gap-6">
+            <!-- Left: J-Tube Canvas & Controls -->
+            <div class="w-full lg:w-1/3 flex flex-col gap-4">
+                <div class="theme-panel bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center shadow-sm">
+                    <button id="add-mercury-btn" class="theme-btn-accent btn-add bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-md flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                        수은 첨가 (클릭)
+                    </button>
+                    <button id="reset-btn" class="theme-btn-secondary bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg transition duration-200">
+                        초기화
+                    </button>
+                </div>
+
+                <div class="theme-canvas-light canvas-container w-full aspect-[3/4] flex justify-center items-center relative">
+                    <canvas id="jTubeCanvas" width="300" height="400"></canvas>
+                    
+                    <!-- Dynamic Readouts overlay -->
+                    <div class="absolute top-4 left-4 bg-white/80 p-2 rounded shadow text-sm backdrop-blur-sm border border-gray-200">
+                        <p class="text-gray-600 font-bold mb-1">현재 상태</p>
+                        <p>압력(P): <span id="current-P" class="font-mono text-red-600 font-bold">29.1</span> in Hg</p>
+                        <p>부피(V): <span id="current-V" class="font-mono text-blue-600 font-bold">48.0</span> in³</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 text-center">* 대기압(\( P_{atm} \))은 약 29.1 in Hg로 가정</p>
+            </div>
+
+            <!-- Right: Graph and Table -->
+            <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                <!-- Graph -->
+                <div class="theme-panel bg-white p-4 rounded-lg border border-gray-200 shadow-sm h-72">
+                    <canvas id="boyleChart"></canvas>
+                </div>
+
+                <!-- Data Table (Based on Boyle's original data) -->
+                <div class="theme-panel theme-table-shell bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <h3 class="font-bold text-gray-700">표 5.1 Boyle이 실험으로 얻은 자료</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="data-table min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100 text-gray-600 text-sm">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold">실험 횟수</th>
+                                    <th class="py-3 px-4 font-semibold">압력, \(P\) (in Hg)</th>
+                                    <th class="py-3 px-4 font-semibold">부피, \(V\) (in³)</th>
+                                    <th class="py-3 px-4 font-semibold">압력 × 부피 (in Hg × in³)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-tbody" class="bg-white divide-y divide-gray-200 text-sm font-mono text-gray-700">
+                                <!-- Rows will be populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Boyle's Law Experimental Data (Table 5.1) ---
+        // P_atm is roughly 29.1 in Hg based on the first data point (h=0)
+        const boyleData = [
+            { step: 1, P: 29.1, V: 48.0, PV: "14.0 × 10²" },
+            { step: 2, P: 35.3, V: 40.0, PV: "14.1 × 10²" },
+            { step: 3, P: 44.2, V: 32.0, PV: "14.1 × 10²" },
+            { step: 4, P: 58.8, V: 24.0, PV: "14.1 × 10²" },
+            { step: 5, P: 70.7, V: 20.0, PV: "14.1 × 10²" },
+            { step: 6, P: 87.2, V: 16.0, PV: "14.0 × 10²" },
+            { step: 7, P: 117.5, V: 12.0, PV: "14.1 × 10²" }
+        ];
+
+        let currentStateIndex = 0;
+        let isAnimating = false;
+        let animationProgress = 1.0; 
+
+        // Current visual values
+        let currentP = boyleData[0].P;
+        let currentV = boyleData[0].V;
+        
+        const P_atm = 29.1;
+
+        // --- DOM Elements ---
+        const btnAdd = document.getElementById('add-mercury-btn');
+        const btnReset = document.getElementById('reset-btn');
+        const tbody = document.getElementById('data-tbody');
+        const textP = document.getElementById('current-P');
+        const textV = document.getElementById('current-V');
+
+        // --- Initialize Table ---
+        function initTable() {
+            tbody.innerHTML = '';
+            boyleData.forEach((data, index) => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${index}`;
+                // Hide future rows initially (opacity 0)
+                tr.className = index === 0 ? 'active' : 'opacity-30';
+                tr.innerHTML = `
+                    <td class="py-2 px-4">${data.step}</td>
+                    <td class="py-2 px-4 text-red-600">${data.P.toFixed(1)}</td>
+                    <td class="py-2 px-4 text-blue-600">${data.V.toFixed(1)}</td>
+                    <td class="py-2 px-4 text-purple-600 font-semibold">${data.PV}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateTableVisibility() {
+            boyleData.forEach((_, index) => {
+                const row = document.getElementById(`row-${index}`);
+                if (index === currentStateIndex) {
+                    row.className = 'active opacity-100';
+                } else if (index < currentStateIndex) {
+                    row.className = 'opacity-100 text-gray-500 bg-gray-50';
+                } else {
+                    row.className = 'opacity-30';
+                }
+            });
+        }
+
+        // --- Chart.js Setup ---
+        const ctxChart = document.getElementById('boyleChart').getContext('2d');
+        
+        // Generate theoretical curve data (PV = 1400)
+        const theoreticalData = [];
+        for (let v = 10; v <= 55; v += 1) {
+            theoreticalData.push({ x: v, y: 1400 / v });
+        }
+
+        const boyleChart = new Chart(ctxChart, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: '이상적인 곡선 (PV=k)',
+                        data: theoreticalData,
+                        type: 'line',
+                        borderColor: 'rgba(156, 163, 175, 0.5)', // gray-400
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: '실험 데이터 (P vs V)',
+                        data: [{ x: boyleData[0].V, y: boyleData[0].P }],
+                        backgroundColor: '#dc2626', // red-600
+                        borderColor: '#991b1b',
+                        borderWidth: 1,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 }, // Disable default chart animation for real-time manual update
+                plugins: {
+                    legend: { position: 'top', labels: { font: { family: 'Helvetica Neue' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `V: ${ctx.parsed.x.toFixed(1)}, P: ${ctx.parsed.y.toFixed(1)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: '부피 V (in³)', font: { weight: 'bold' } },
+                        min: 0, max: 60
+                    },
+                    y: {
+                        title: { display: true, text: '압력 P (in Hg)', font: { weight: 'bold' } },
+                        min: 0, max: 130
+                    }
+                }
+            }
+        });
+
+        // --- Canvas J-Tube Drawing ---
+        const canvas = document.getElementById('jTubeCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function drawJTube(P, V) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 시각적 스케일 매핑
+            const y_left = 60 + V * 3.5;
+            const h = P - P_atm;
+            const y_right = y_left - h * 0.8;
+
+            // 1. 기체(Gas) 영역 칠하기 (Light Blue)
+            ctx.fillStyle = '#e0f2fe'; // sky-100
+            ctx.beginPath();
+            ctx.moveTo(80, y_left);
+            ctx.lineTo(80, 60);
+            ctx.arc(100, 60, 20, Math.PI, 0, false); // 왼쪽 관 상단 돔(Dome)
+            ctx.lineTo(120, y_left);
+            ctx.closePath();
+            ctx.fill();
+
+            // 2. 수은(Mercury) 영역 칠하기 (Slate Gray)
+            ctx.fillStyle = '#94a3b8'; // slate-400
+            ctx.beginPath();
+            ctx.moveTo(80, y_left);
+            ctx.lineTo(80, 320); // 왼쪽 관 바깥벽 따라 하강
+            ctx.arc(150, 320, 70, Math.PI, 0, true); // U자관 바깥쪽 곡선 (반시계방향)
+            ctx.lineTo(220, y_right); // 오른쪽 관 바깥벽 따라 상승
+            ctx.lineTo(180, y_right); // 수은면을 가로질러 안쪽 벽으로
+            ctx.lineTo(180, 320); // 오른쪽 관 안쪽벽 따라 하강
+            ctx.arc(150, 320, 30, 0, Math.PI, false); // U자관 안쪽 곡선 (시계방향)
+            ctx.lineTo(120, y_left); // 왼쪽 관 안쪽벽 따라 상승
+            ctx.closePath(); // 기체 밑면을 가로질러 닫음
+            ctx.fill();
+
+            // 3. 유리관 외곽선 그리기
+            ctx.strokeStyle = '#cbd5e1'; // slate-300
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // 왼쪽 관 전체 ~ 오른쪽 관 안쪽 벽
+            ctx.beginPath();
+            ctx.moveTo(80, 320);
+            ctx.lineTo(80, 60);
+            ctx.arc(100, 60, 20, Math.PI, 0, false);
+            ctx.lineTo(120, 320);
+            ctx.arc(150, 320, 30, Math.PI, 0, true);
+            ctx.lineTo(180, 30);
+            ctx.stroke();
+
+            // 오른쪽 관 바깥벽 ~ U자관 바깥쪽 바닥
+            ctx.beginPath();
+            ctx.moveTo(220, 30); // 오른쪽 상단은 열려있음
+            ctx.lineTo(220, 320);
+            ctx.arc(150, 320, 70, 0, Math.PI, false);
+            ctx.stroke();
+
+            // 4. 레이블 및 주석 (Annotations)
+            // Gas 텍스트
+            ctx.fillStyle = '#1e293b'; // slate-800
+            ctx.font = 'bold 14px Helvetica, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Gas', 100, 60 + (y_left - 60) / 2 + 5);
+
+            // 'h' 높이차 표시기
+            if (h > 1) {
+                ctx.strokeStyle = '#f87171'; // red-400
+                ctx.lineWidth = 1.5;
+
+                // 기체-수은 경계면의 왼쪽 점선
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(120, y_left);
+                ctx.lineTo(150, y_left);
+                ctx.stroke();
+
+                // 수은면의 오른쪽 점선
+                ctx.beginPath();
+                ctx.moveTo(150, y_right);
+                ctx.lineTo(180, y_right);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 높이차 수직 화살표
+                ctx.beginPath();
+                ctx.moveTo(150, y_left);
+                ctx.lineTo(150, y_right);
+                ctx.stroke();
+
+                // 위쪽 화살촉
+                ctx.beginPath();
+                ctx.moveTo(146, y_right + 4);
+                ctx.lineTo(150, y_right);
+                ctx.lineTo(154, y_right + 4);
+                ctx.stroke();
+
+                // 아래쪽 화살촉
+                ctx.beginPath();
+                ctx.moveTo(146, y_left - 4);
+                ctx.lineTo(150, y_left);
+                ctx.lineTo(154, y_left - 4);
+                ctx.stroke();
+
+                // 'h' 텍스트
+                ctx.fillStyle = '#ef4444'; // red-500
+                ctx.textAlign = 'right';
+                ctx.fillText('h', 142, y_right + (y_left - y_right) / 2 + 5);
+            }
+
+            // 대기압(P_atm) 표시
+            ctx.fillStyle = '#475569'; // slate-600
+            ctx.font = 'bold 12px Helvetica, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('P_atm', 200, 15);
+
+            // 대기압 방향 하향 화살표
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(200, 20);
+            ctx.lineTo(200, 30);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(196, 26);
+            ctx.lineTo(200, 30);
+            ctx.lineTo(204, 26);
+            ctx.stroke();
+        }
+
+        // --- Animation Engine ---
+        let startP, startV, targetP, targetV;
+        const ANIMATION_DURATION = 800; // ms
+        let startTime = null;
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            
+            let progress = elapsed / ANIMATION_DURATION;
+            if (progress > 1) progress = 1;
+
+            // Easing function (easeOutQuad)
+            const easeProgress = 1 - (1 - progress) * (1 - progress);
+
+            currentP = startP + (targetP - startP) * easeProgress;
+            currentV = startV + (targetV - startV) * easeProgress;
+
+            // Update UI
+            textP.innerText = currentP.toFixed(1);
+            textV.innerText = currentV.toFixed(1);
+            
+            // Draw J-Tube
+            drawJTube(currentP, currentV);
+
+            // Update Chart
+            boyleChart.data.datasets[1].data[currentStateIndex] = { x: currentV, y: currentP };
+            boyleChart.update();
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                isAnimating = false;
+                btnAdd.disabled = (currentStateIndex >= boyleData.length - 1);
+                updateTableVisibility();
+            }
+        }
+
+        // --- Event Listeners ---
+        btnAdd.addEventListener('click', () => {
+            if (isAnimating || currentStateIndex >= boyleData.length - 1) return;
+            
+            isAnimating = true;
+            btnAdd.disabled = true;
+            
+            startP = currentP;
+            startV = currentV;
+            
+            currentStateIndex++;
+            targetP = boyleData[currentStateIndex].P;
+            targetV = boyleData[currentStateIndex].V;
+            
+            // Add new point to chart array
+            boyleChart.data.datasets[1].data.push({ x: startV, y: startP });
+            
+            startTime = null;
+            requestAnimationFrame(animate);
+        });
+
+        btnReset.addEventListener('click', () => {
+            if (isAnimating) return;
+            
+            currentStateIndex = 0;
+            currentP = boyleData[0].P;
+            currentV = boyleData[0].V;
+            
+            textP.innerText = currentP.toFixed(1);
+            textV.innerText = currentV.toFixed(1);
+            
+            boyleChart.data.datasets[1].data = [{ x: currentV, y: currentP }];
+            boyleChart.update();
+            
+            drawJTube(currentP, currentV);
+            updateTableVisibility();
+            
+            btnAdd.disabled = false;
+        });
+
+        // --- Initial Boot ---
+        initTable();
+        drawJTube(currentP, currentV);
+
+    </script>
+</body>
+</html>

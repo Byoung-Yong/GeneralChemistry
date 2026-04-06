@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 샤를의 법칙 시뮬레이션</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 폰트 설정 (영문명만 사용) */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .slider-custom {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+        }
+
+        .slider-custom::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f97316; /* orange-500 */
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .slider-custom::-webkit-slider-thumb:hover {
+            background: #ea580c;
+        }
+
+        .data-table th, .data-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="theme-page text-gray-800 antialiased p-4 md:p-8">
+
+    <div class="theme-shell max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+        <!-- Header -->
+        <header class="theme-hero bg-orange-600 text-white p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">샤를의 법칙 (Charles's Law)</h1>
+                    <p class="text-orange-100 text-lg">일정한 압력에서 기체의 온도와 부피의 관계</p>
+                </div>
+                <div class="theme-hero-box hidden md:block text-right">
+                    <p class="text-xl font-bold text-yellow-200">\( V = bT \)</p>
+                    <p class="text-sm text-orange-200">\( V \propto T \) (T는 절대온도 K)</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="theme-content flex flex-col lg:flex-row p-6 gap-6">
+            <!-- Left: Simulation Canvas & Controls -->
+            <div class="w-full lg:w-1/3 flex flex-col gap-4">
+                <!-- Controls -->
+                <div class="theme-panel bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-4">
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="font-bold text-gray-700">온도 (Temperature, \(T\))</label>
+                            <span id="display-T" class="text-2xl font-mono text-orange-600 font-bold">300 K</span>
+                        </div>
+                        <input type="range" id="slider-T" min="100" max="600" value="300" step="10" class="slider-custom">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1 font-bold">
+                            <span>100 K (냉각)</span>
+                            <span>600 K (가열)</span>
+                        </div>
+                    </div>
+
+                    <button id="record-btn" class="theme-btn-primary w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200 flex justify-center items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+                        </svg>
+                        현재 데이터 기록
+                    </button>
+                    <button id="reset-btn" class="theme-btn-secondary w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg transition duration-200 text-sm">
+                        기록 초기화
+                    </button>
+                </div>
+
+                <!-- Simulation Canvas -->
+                <div class="theme-canvas-light canvas-container w-full aspect-[3/4] flex justify-center items-center relative bg-slate-50">
+                    <canvas id="charlesCanvas" width="300" height="400"></canvas>
+                    
+                    <!-- Dynamic Readout -->
+                    <div class="absolute top-4 right-4 bg-white/90 p-2 rounded shadow text-sm backdrop-blur border border-gray-200 text-right">
+                        <p class="text-gray-500 font-bold mb-1">일정 압력(P) 상태</p>
+                        <p>부피(V): <span id="display-V" class="font-mono text-blue-600 font-bold text-lg">15.0</span> L</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 text-center">* 피스톤 위의 추는 압력이 일정하게 유지됨을 의미합니다.</p>
+            </div>
+
+            <!-- Right: Graph and Table -->
+            <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                <!-- Graph -->
+                <div class="theme-panel bg-white p-4 rounded-lg border border-gray-200 shadow-sm h-72">
+                    <canvas id="charlesChart"></canvas>
+                </div>
+
+                <!-- Data Table -->
+                <div class="theme-panel theme-table-shell bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex-1">
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-700">기록된 데이터 (일정한 압력 조건)</h3>
+                        <span class="text-sm text-gray-500 font-mono">비례 상수 \( b = V / T \)</span>
+                    </div>
+                    <div class="overflow-y-auto max-h-48">
+                        <table class="data-table min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100 text-gray-600 text-sm sticky top-0">
+                                <tr>
+                                    <th class="py-2 px-4 font-semibold">데이터</th>
+                                    <th class="py-2 px-4 font-semibold">온도, \(T\) (K)</th>
+                                    <th class="py-2 px-4 font-semibold">부피, \(V\) (L)</th>
+                                    <th class="py-2 px-4 font-semibold">\( V / T \) (L/K)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-tbody" class="bg-white divide-y divide-gray-200 text-sm font-mono text-gray-700">
+                                <!-- Rows will be populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        const CONSTANT_B = 0.05; // V = bT -> V = 0.05 * T (e.g., at 300K, V = 15L)
+        let currentT = 300;
+        let currentV = currentT * CONSTANT_B;
+        let recordedData = [];
+        let dataCount = 0;
+
+        // --- DOM Elements ---
+        const sliderT = document.getElementById('slider-T');
+        const displayT = document.getElementById('display-T');
+        const displayV = document.getElementById('display-V');
+        const btnRecord = document.getElementById('record-btn');
+        const btnReset = document.getElementById('reset-btn');
+        const tbody = document.getElementById('data-tbody');
+
+        // --- Chart.js Setup ---
+        const ctxChart = document.getElementById('charlesChart').getContext('2d');
+        
+        // Theoretical line from 0K to 700K
+        const theoreticalData = [
+            { x: 0, y: 0 },
+            { x: 700, y: 700 * CONSTANT_B }
+        ];
+
+        const charlesChart = new Chart(ctxChart, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: '이상적인 선형 관계 (V = bT)',
+                        data: theoreticalData,
+                        type: 'line',
+                        borderColor: 'rgba(156, 163, 175, 0.5)', // gray-400
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0
+                    },
+                    {
+                        label: '기록된 데이터',
+                        data: [], // Starts empty
+                        backgroundColor: '#f97316', // orange-500
+                        borderColor: '#c2410c',
+                        borderWidth: 1,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    },
+                    {
+                        label: '현재 상태',
+                        data: [{ x: currentT, y: currentV }],
+                        backgroundColor: '#3b82f6', // blue-500
+                        borderColor: '#1d4ed8',
+                        pointRadius: 8,
+                        pointStyle: 'triangle',
+                        rotation: 180
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 200 },
+                plugins: {
+                    legend: { position: 'top', labels: { font: { family: 'Helvetica Neue' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `T: ${ctx.parsed.x} K, V: ${ctx.parsed.y.toFixed(1)} L`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: '절대 온도 T (K)', font: { weight: 'bold' } },
+                        min: 0, max: 650
+                    },
+                    y: {
+                        title: { display: true, text: '부피 V (L)', font: { weight: 'bold' } },
+                        min: 0, max: 35
+                    }
+                }
+            }
+        });
+
+        // --- Table Management ---
+        function updateTable() {
+            tbody.innerHTML = '';
+            recordedData.forEach((data, index) => {
+                const tr = document.createElement('tr');
+                const b_val = (data.V / data.T).toFixed(4);
+                tr.innerHTML = `
+                    <td class="py-2 px-4 text-gray-500">#${index + 1}</td>
+                    <td class="py-2 px-4 text-orange-600 font-bold">${data.T}</td>
+                    <td class="py-2 px-4 text-blue-600 font-bold">${data.V.toFixed(1)}</td>
+                    <td class="py-2 px-4 text-purple-600">${b_val}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- Particles Engine for Gas Simulation ---
+        class GasParticle {
+            constructor(containerWidth) {
+                this.radius = 4;
+                this.x = this.radius + Math.random() * (containerWidth - 2 * this.radius);
+                this.y = 200; // Will be clamped in update
+                
+                // Base velocity
+                const angle = Math.random() * Math.PI * 2;
+                this.baseVx = Math.cos(angle);
+                this.baseVy = Math.sin(angle);
+            }
+
+            update(pistonY, containerBottom, containerWidth, tempK) {
+                // Speed proportional to sqrt(T)
+                const speedFactor = Math.sqrt(tempK / 50) * 1.5; 
+                let vx = this.baseVx * speedFactor;
+                let vy = this.baseVy * speedFactor;
+
+                this.x += vx;
+                this.y += vy;
+
+                // Wall collisions
+                if (this.x <= this.radius) {
+                    this.x = this.radius;
+                    this.baseVx *= -1;
+                } else if (this.x >= containerWidth - this.radius) {
+                    this.x = containerWidth - this.radius;
+                    this.baseVx *= -1;
+                }
+
+                if (this.y >= containerBottom - this.radius) {
+                    this.y = containerBottom - this.radius;
+                    this.baseVy *= -1;
+                } else if (this.y <= pistonY + this.radius) {
+                    this.y = pistonY + this.radius;
+                    this.baseVy *= -1;
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        const particles = [];
+        const numParticles = 40;
+        const cylWidth = 140;
+        for (let i = 0; i < numParticles; i++) {
+            particles.push(new GasParticle(cylWidth));
+        }
+
+        // --- Canvas Drawing ---
+        const canvas = document.getElementById('charlesCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Layout constants
+        const centerX = canvas.width / 2;
+        const cylLeft = centerX - cylWidth / 2;
+        const cylRight = centerX + cylWidth / 2;
+        const cylBottom = 320;
+        const cylTop = 60; // Max expansion
+
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Calculate Visual Heights based on Volume
+            // V range is ~5L (100K) to 30L (600K). 
+            // Map V to piston height (y-coordinate)
+            const minV = 100 * CONSTANT_B; // 5
+            const maxV = 600 * CONSTANT_B; // 30
+            // Map 5L -> y=280, 30L -> y=80
+            const pistonY = 280 - ((currentV - minV) / (maxV - minV)) * 200;
+
+            // 2. Draw Heat Source / Cooling Source
+            if (currentT > 300) {
+                // Flame (Hot)
+                const intensity = (currentT - 300) / 300;
+                ctx.fillStyle = `rgba(239, 68, 68, ${0.5 + intensity * 0.5})`; // red-500
+                ctx.beginPath();
+                ctx.moveTo(centerX - 30, cylBottom + 20);
+                ctx.quadraticCurveTo(centerX, cylBottom - 10 - (intensity*20), centerX + 30, cylBottom + 20);
+                ctx.fill();
+                
+                // Burner base
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(centerX - 15, cylBottom + 20, 30, 15);
+            } else if (currentT < 300) {
+                // Ice (Cold)
+                const intensity = (300 - currentT) / 200;
+                ctx.fillStyle = `rgba(56, 189, 248, ${0.5 + intensity * 0.5})`; // sky-400
+                ctx.fillRect(centerX - 40, cylBottom, 80, 20 + intensity * 10);
+                ctx.fillStyle = '#e0f2fe';
+                ctx.fillRect(centerX - 35, cylBottom - 5, 20, 15);
+                ctx.fillRect(centerX + 15, cylBottom - 10, 25, 20);
+            } else {
+                // Neutral plate
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(centerX - 40, cylBottom, 80, 10);
+            }
+
+            // 3. Draw Gas Area (Color shifts from blue to red based on T)
+            const tRatio = (currentT - 100) / 500; // 0 to 1
+            const r = Math.floor(tRatio * 255);
+            const b = Math.floor((1 - tRatio) * 255);
+            ctx.fillStyle = `rgba(${r}, 100, ${b}, 0.15)`;
+            ctx.fillRect(cylLeft, pistonY, cylWidth, cylBottom - pistonY);
+
+            // 4. Update and Draw Particles
+            ctx.fillStyle = `rgb(${r}, 50, ${b})`; // Solid color for particles
+            ctx.save();
+            ctx.translate(cylLeft, 0); // Translate to cylinder coordinate system for particles
+            particles.forEach(p => {
+                p.update(pistonY, cylBottom, cylWidth, currentT);
+                p.draw(ctx);
+            });
+            ctx.restore();
+
+            // 5. Draw Cylinder Glass (Outside)
+            ctx.strokeStyle = '#94a3b8'; // slate-400
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cylLeft, cylTop);
+            ctx.lineTo(cylLeft, cylBottom);
+            ctx.lineTo(cylRight, cylBottom);
+            ctx.lineTo(cylRight, cylTop);
+            ctx.stroke();
+
+            // 6. Draw Piston & Weight
+            // Piston disk
+            ctx.fillStyle = '#64748b'; // slate-500
+            ctx.fillRect(cylLeft + 2, pistonY - 15, cylWidth - 4, 15);
+            // Piston rod
+            ctx.fillStyle = '#cbd5e1'; // slate-300
+            ctx.fillRect(centerX - 4, cylTop - 20, 8, pistonY - cylTop + 5);
+
+            // Weight on top (Constant Pressure indicator)
+            ctx.fillStyle = '#1e293b'; // slate-800
+            ctx.fillRect(centerX - 25, cylTop - 40, 50, 20);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText('1 atm', centerX, cylTop - 26);
+
+            // 7. Thermometer Visual
+            const thermoX = 40;
+            const thermoYBottom = 300;
+            const thermoHeight = 150;
+            // outline
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(thermoX, thermoYBottom);
+            ctx.lineTo(thermoX, thermoYBottom - thermoHeight);
+            ctx.stroke();
+            // bulb
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(thermoX, thermoYBottom + 5, 8, 0, Math.PI * 2);
+            ctx.fill();
+            // liquid level
+            const liquidH = (currentT / 600) * thermoHeight;
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(thermoX, thermoYBottom);
+            ctx.lineTo(thermoX, thermoYBottom - liquidH);
+            ctx.stroke();
+
+            requestAnimationFrame(drawSimulation);
+        }
+
+        // --- Interaction Logic ---
+        function updateState() {
+            currentV = currentT * CONSTANT_B;
+            displayT.innerText = `${currentT} K`;
+            displayV.innerText = currentV.toFixed(1);
+            
+            // Update chart current position pointer
+            charlesChart.data.datasets[2].data = [{ x: currentT, y: currentV }];
+            charlesChart.update('none'); // Update without full animation
+        }
+
+        sliderT.addEventListener('input', (e) => {
+            currentT = parseInt(e.target.value);
+            updateState();
+        });
+
+        btnRecord.addEventListener('click', () => {
+            // Prevent duplicate records for the exact same temperature
+            if (recordedData.some(d => d.T === currentT)) return;
+
+            recordedData.push({ T: currentT, V: currentV });
+            
+            // Sort by T so table/line looks ordered
+            recordedData.sort((a, b) => a.T - b.T);
+            
+            // Update Chart Data
+            charlesChart.data.datasets[1].data = recordedData.map(d => ({ x: d.T, y: d.V }));
+            charlesChart.update();
+            
+            updateTable();
+        });
+
+        btnReset.addEventListener('click', () => {
+            recordedData = [];
+            charlesChart.data.datasets[1].data = [];
+            charlesChart.update();
+            updateTable();
+        });
+
+        // --- Start ---
+        updateState();
+        drawSimulation(); // Starts the requestAnimationFrame loop
+
+    </script>
+</body>
+</html>

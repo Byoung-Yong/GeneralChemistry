@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일반화학: 실제 기체와 반 데르 발스 방정식</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* 폰트는 영어 폰트명만 사용 */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid #cbd5e1;
+            overflow: hidden;
+        }
+
+        /* 슬라이더 공통 커스텀 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .slider-vol::-webkit-slider-thumb { background: #10b981; }
+        .slider-temp::-webkit-slider-thumb { background: #ef4444; }
+        .slider-n::-webkit-slider-thumb { background: #64748b; }
+        .slider-a::-webkit-slider-thumb { background: #8b5cf6; } 
+        .slider-b::-webkit-slider-thumb { background: #eab308; } 
+
+        .wall-flash {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            pointer-events: none;
+            border-right: 4px solid transparent;
+            transition: border-color 0.1s;
+        }
+    </style>
+</head>
+<body class="theme-page text-slate-800 antialiased p-4 md:p-6">
+
+    <div class="theme-shell max-w-[1400px] mx-auto bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <header class="theme-hero bg-slate-800 text-white p-5">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold mb-1 text-indigo-300">실제 기체 (Real Gases)</h1>
+                    <p class="text-slate-400 text-sm italic">Van der Waals Equation: \(\left[P + a\left(\frac{n}{V}\right)^2\right](V - nb) = nRT\)</p>
+                </div>
+                <div class="theme-hero-box text-right">
+                    <p class="text-xs text-slate-400">일반화학 제5장</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="theme-content theme-split flex flex-col lg:flex-row min-h-[700px]">
+            <!-- Left Panel: Simulation & Controls -->
+            <div class="theme-side-panel w-full lg:w-5/12 p-6 bg-slate-50">
+                
+                <!-- State Variables -->
+                <div class="space-y-4 mb-6">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest border-b pb-2">기본 변수 (State Variables)</h2>
+                    
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <label class="font-semibold text-emerald-700">부피 (V)</label>
+                            <span id="display-V" class="font-mono font-bold">100 L</span>
+                        </div>
+                        <input type="range" id="slider-V" min="40" max="100" value="100" class="slider-vol">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <label class="font-semibold text-red-700">온도 (T)</label>
+                            <span id="display-T" class="font-mono font-bold">300 K</span>
+                        </div>
+                        <input type="range" id="slider-T" min="100" max="600" value="300" class="slider-temp">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <label class="font-semibold text-slate-700">입자 수 (n)</label>
+                            <span id="display-n" class="font-mono font-bold">50 mol</span>
+                        </div>
+                        <input type="range" id="slider-n" min="10" max="100" value="50" class="slider-n">
+                    </div>
+                </div>
+
+                <!-- Van der Waals Constants -->
+                <div class="theme-panel-white space-y-4 mb-6 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                    <h2 class="text-xs font-bold text-indigo-500 uppercase tracking-widest border-b pb-2">보정 계수 (VdW Constants)</h2>
+                    
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <label class="font-semibold text-purple-700">분자 간 인력 (a)</label>
+                            <span id="display-a" class="font-mono font-bold">0.0</span>
+                        </div>
+                        <!-- 인력(a)의 범위를 500으로 확대 -->
+                        <input type="range" id="slider-a" min="0" max="500" value="0" class="slider-a w-full">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <label class="font-semibold text-amber-600">입자의 자체 부피 (b)</label>
+                            <span id="display-b" class="font-mono font-bold">0.0</span>
+                        </div>
+                        <input type="range" id="slider-b" min="0" max="100" value="0" class="slider-b w-full">
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="theme-canvas-light canvas-container w-full aspect-square relative mb-2">
+                    <canvas id="gasCanvas" class="bg-white"></canvas>
+                    <div id="wall-flash" class="wall-flash"></div>
+                </div>
+                <div class="text-[10px] text-slate-400 flex justify-center gap-4 italic text-center">
+                    <span>Purple arrow: Attraction (a) | Red spark: Repulsion (b)</span>
+                </div>
+            </div>
+
+            <!-- Right Panel: Displays & Charts -->
+            <div class="w-full lg:w-7/12 p-6 flex flex-col gap-6">
+                
+                <!-- Numerical Readouts -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="theme-metric-slate bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+                        <p class="text-[11px] font-bold text-slate-500 uppercase mb-1">이상 기체 압력 (\( P_{ideal} \))</p>
+                        <p class="text-3xl font-mono font-bold text-slate-400" id="metric-pIdeal">0</p>
+                    </div>
+                    <div class="theme-metric-blue bg-blue-50 p-4 rounded-xl border border-blue-200 text-center shadow-sm">
+                        <p class="text-[11px] font-bold text-blue-600 uppercase mb-1">실제 기체 압력 (\( P_{real} \))</p>
+                        <p class="text-3xl font-mono font-bold text-blue-700" id="metric-pReal">0</p>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="flex-1 flex flex-col gap-6">
+                    <!-- Top Chart: Pressure Comparison -->
+                    <div class="theme-panel bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-1/3 min-h-[200px]">
+                        <h3 class="text-sm font-bold text-slate-700 mb-2">압력 비교 (Ideal vs Real)</h3>
+                        <div class="h-[calc(100%-2rem)]">
+                            <canvas id="pressureChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Chart: Compressibility Factor Z -->
+                    <div class="theme-panel bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-1 min-h-[300px]">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-bold text-slate-700">압축 인자 (Compressibility Factor, \( Z \))</h3>
+                            <div class="text-xs font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-mono">
+                                Z = <span id="val-Z">1.00</span>
+                            </div>
+                        </div>
+                        <div class="h-[calc(100%-2.5rem)]">
+                            <canvas id="zChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Logic & State ---
+        let particles = [];
+        let currentV = 100;
+        let currentT = 300;
+        let currentN = 50;
+        let paramA = 0;
+        let paramB = 0;
+
+        const R_CONST = 1.0; 
+        const A_SCALE = 0.25; 
+        const B_SCALE = 0.003; 
+
+        let pIdeal = 0;
+        let pReal = 0;
+
+        // Canvas Elements
+        const canvas = document.getElementById('gasCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.canvas-container');
+        const wallFlash = document.getElementById('wall-flash');
+        
+        let cw, ch, simWidth;
+
+        function resizeCanvas() {
+            cw = container.clientWidth;
+            ch = container.clientHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+            updateSimWidth();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateSimWidth() {
+            simWidth = Math.max(cw * (currentV / 100), 40);
+            wallFlash.style.width = simWidth + 'px';
+            wallFlash.style.borderRightColor = '#64748b'; 
+        }
+
+        class Particle {
+            constructor() {
+                this.baseRadius = 3;
+                this.updateRadius();
+                const spawnWidth = simWidth || cw;
+                this.x = this.radius + Math.random() * (spawnWidth - 2 * this.radius);
+                this.y = this.radius + Math.random() * (ch - 2 * this.radius);
+                const angle = Math.random() * 2 * Math.PI;
+                this.dirX = Math.cos(angle);
+                this.dirY = Math.sin(angle);
+            }
+            updateRadius() { this.radius = this.baseRadius + (paramB / 12); }
+            update() {
+                const speed = Math.sqrt(currentT / 300) * 4;
+                this.x += this.dirX * speed;
+                this.y += this.dirY * speed;
+                if (this.x <= this.radius) { this.x = this.radius; this.dirX = Math.abs(this.dirX); }
+                else if (this.x >= simWidth - this.radius) { this.x = simWidth - this.radius; this.dirX = -Math.abs(this.dirX); }
+                if (this.y <= this.radius) { this.y = this.radius; this.dirY = Math.abs(this.dirY); }
+                else if (this.y >= ch - this.radius) { this.y = ch - this.radius; this.dirY = -Math.abs(this.dirY); }
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6'; 
+                ctx.fill();
+                if (paramB > 10) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 1, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(234, 179, 8, ${paramB/150})`;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function adjustParticles() {
+            while (particles.length < currentN) { particles.push(new Particle()); }
+            while (particles.length > currentN) { particles.pop(); }
+            particles.forEach(p => p.updateRadius());
+        }
+
+        function calculatePressures() {
+            pIdeal = (currentN * currentT * R_CONST) / currentV;
+            const effectiveV = currentV - (currentN * paramB * B_SCALE);
+            const repulsionTerm = (currentN * currentT * R_CONST) / Math.max(effectiveV, 1); 
+            const attractionTerm = paramA * A_SCALE * Math.pow(currentN / currentV, 2);
+            
+            // 인력이 매우 커져도 압력이 5 이하로 떨어지지 않도록 보정 (물리적 입자 충돌 하한선)
+            pReal = Math.max(5, repulsionTerm - attractionTerm);
+
+            document.getElementById('metric-pIdeal').innerText = pIdeal.toFixed(0);
+            document.getElementById('metric-pReal').innerText = pReal.toFixed(0);
+
+            // Z = P_real / P_ideal
+            const zVal = pReal / pIdeal;
+            document.getElementById('val-Z').innerText = zVal.toFixed(2);
+
+            pressureChart.data.datasets[0].data = [pIdeal, pReal];
+            pressureChart.update();
+
+            zChart.data.datasets[1].data = [{ x: pReal, y: zVal }];
+            zChart.update();
+        }
+
+        // --- Charts ---
+        const pressureChart = new Chart(document.getElementById('pressureChart'), {
+            type: 'bar',
+            data: {
+                labels: ['이상 기체', '실제 기체'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['rgba(148, 163, 184, 0.5)', 'rgba(37, 99, 235, 0.8)'],
+                    borderColor: ['#94a3b8', '#1d4ed8'],
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, suggestedMax: 300 } }
+            }
+        });
+
+        const zChart = new Chart(document.getElementById('zChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Ideal Baseline (Z=1)',
+                        data: [{x: 0, y: 1}, {x: 1000, y: 1}],
+                        type: 'line',
+                        borderColor: '#94a3b8',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Current Simulation',
+                        data: [{x: 0, y: 1}],
+                        backgroundColor: '#4f46e5',
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                        pointRadius: 8,
+                        pointHoverRadius: 10
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        type: 'linear', position: 'bottom',
+                        min: 0, max: 1000, // 인력이 커짐에 따라 압력 범위도 소폭 확대
+                        title: { display: true, text: 'Pressure (P)', font: { weight: 'bold' } }
+                    },
+                    y: {
+                        min: 0, max: 2.5,
+                        title: { display: true, text: 'PV / nRT', font: { weight: 'bold' } }
+                    }
+                }
+            }
+        });
+
+        // --- Handlers ---
+        const bind = (id, dispId, callback) => {
+            const el = document.getElementById(id);
+            const disp = document.getElementById(dispId);
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                disp.innerText = (id.includes('slider-a') || id.includes('slider-b')) ? val.toFixed(1) : `${val} ${id.includes('V') ? 'L' : (id.includes('T') ? 'K' : 'mol')}`;
+                callback(val);
+                calculatePressures();
+            });
+        };
+
+        bind('slider-V', 'display-V', v => { currentV = v; updateSimWidth(); });
+        bind('slider-T', 'display-T', v => currentT = v);
+        bind('slider-n', 'display-n', v => { currentN = v; adjustParticles(); });
+        bind('slider-a', 'display-a', v => paramA = v);
+        bind('slider-b', 'display-b', v => { paramB = v; particles.forEach(p => p.updateRadius()); });
+
+        // --- Loop ---
+        function animate() {
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, simWidth, ch);
+            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(simWidth, 0, cw - simWidth, ch);
+            ctx.fillStyle = '#64748b'; ctx.fillRect(simWidth, 0, 6, ch);
+
+            let forces = new Array(particles.length).fill(null).map(() => ({x: 0, y: 0}));
+
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i], p2 = particles[j];
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y, dist = Math.sqrt(dx*dx + dy*dy);
+                    const minDist = p1.radius + p2.radius;
+                    
+                    if (dist < minDist) {
+                        const overlap = minDist - dist, angle = Math.atan2(dy, dx);
+                        p1.x -= Math.cos(angle) * overlap / 2; p1.y -= Math.sin(angle) * overlap / 2;
+                        p2.x += Math.cos(angle) * overlap / 2; p2.y += Math.sin(angle) * overlap / 2;
+                        p1.dirX *= -1; p1.dirY *= -1; p2.dirX *= -1; p2.dirY *= -1;
+                        if (paramB > 5) {
+                            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                            ctx.strokeStyle = `rgba(239, 68, 68, ${paramB/100})`; ctx.lineWidth = 2; ctx.stroke();
+                        }
+                    } else if (paramA > 0 && dist < 60) {
+                        const f = 1 - (dist / 60);
+                        forces[i].x += (dx / dist) * f; forces[i].y += (dy / dist) * f;
+                        forces[j].x -= (dx / dist) * f; forces[j].y -= (dy / dist) * f;
+                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                        // 시각적 선명도가 너무 높지 않게 조정 (paramA/250)
+                        ctx.strokeStyle = `rgba(139, 92, 246, ${Math.min(0.5, (paramA/250) * f * 0.4)})`;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            if (paramA > 0) {
+                particles.forEach((p, i) => {
+                    if (p.x < 40 || p.x > simWidth - 40 || p.y < 40 || p.y > ch - 40) {
+                        const mag = Math.sqrt(forces[i].x**2 + forces[i].y**2);
+                        if (mag > 0.1) {
+                            const nx = (forces[i].x / mag) * 15, ny = (forces[i].y / mag) * 15;
+                            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + nx, p.y + ny);
+                            // 화살표 불투명도 조절
+                            ctx.strokeStyle = `rgba(139, 92, 246, ${Math.min(0.8, paramA/200)})`; 
+                            ctx.lineWidth = 2; ctx.stroke();
+                        }
+                    }
+                });
+            }
+            particles.forEach(p => { p.update(); p.draw(ctx); });
+            requestAnimationFrame(animate);
+        }
+
+        resizeCanvas();
+        adjustParticles();
+        calculatePressures();
+        animate();
+    </script>
+</body>
+</html>
