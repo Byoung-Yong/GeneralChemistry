@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Energy Change</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Times+New+Roman:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        
+        .math-text {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 12px 0;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        input[type=range]:focus { outline: none; }
+
+        /* Q Slider (Heat) */
+        #slider-q::-webkit-slider-thumb { background: #ef4444; }
+        #slider-q::-webkit-slider-runnable-track { background: linear-gradient(to right, #93c5fd, #e2e8f0, #fca5a5); }
+
+        /* W Slider (Work) */
+        #slider-w::-webkit-slider-thumb { background: #3b82f6; }
+        #slider-w::-webkit-slider-runnable-track { background: linear-gradient(to right, #d1d5db, #93c5fd); }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-8 flex items-center justify-center">
+    
+    <div class="theme-shell max-w-5xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        
+        <!-- Header -->
+        <div class="theme-hero bg-slate-50 border-b border-slate-100 p-6 md:p-8 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3 tracking-tight">
+                열역학 제1법칙: 내부에너지 변화
+            </h1>
+            <p class="text-slate-600 font-medium">
+                계(System)의 변화를 <span class="text-rose-600 font-bold">실제 온도(T)</span>와 <span class="text-blue-600 font-bold">실제 부피(V)</span>의 수치 변화로 확인합니다.
+            </p>
+            <div class="theme-hero-box mt-6 inline-block bg-white px-8 py-4 rounded-xl shadow-sm border border-slate-200">
+                <span class="text-4xl math-text font-bold text-slate-800">
+                    ΔE = q − w
+                </span>
+            </div>
+        </div>
+
+        <div class="theme-content flex flex-col lg:flex-row p-6 md:p-8 gap-8 lg:gap-12 items-center">
+            
+            <!-- Left: Controls & Equations -->
+            <div class="flex-1 w-full space-y-6">
+                
+                <!-- Q Control -->
+                <div class="theme-metric-orange bg-rose-50 p-5 rounded-xl border border-rose-100 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <h3 class="font-bold text-rose-800 flex items-center gap-2">
+                                <span class="math-text text-xl">q</span> (가해진 열)
+                            </h3>
+                            <p class="text-xs font-semibold text-rose-600 mt-1" id="desc-q">
+                                계에 열을 가함
+                            </p>
+                        </div>
+                        <span id="val-q" class="text-2xl font-bold text-rose-700 font-mono">+50 J</span>
+                    </div>
+                    <input type="range" id="slider-q" min="-100" max="100" step="5" value="50" oninput="updateSimulation()">
+                    <div class="flex justify-between text-xs text-rose-400 font-medium">
+                        <span>방출 (-100 J)</span>
+                        <span>0</span>
+                        <span>흡수 (+100 J)</span>
+                    </div>
+                </div>
+
+                <!-- W Control -->
+                <div class="theme-metric-blue bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <h3 class="font-bold text-blue-800 flex items-center gap-2">
+                                <span class="math-text text-xl">w</span> (계가 한 일)
+                            </h3>
+                            <p class="text-sm font-semibold text-blue-700 mt-1 bg-white inline-block px-2 py-1 rounded border border-blue-100 shadow-sm" id="desc-v">
+                                부피(V): 20.0 L → <span id="val-v2">22.0 L</span>
+                            </p>
+                        </div>
+                        <span id="val-w" class="text-2xl font-bold text-blue-700 font-mono">+20 J</span>
+                    </div>
+                    <input type="range" id="slider-w" min="-100" max="100" step="5" value="20" oninput="updateSimulation()">
+                    <div class="flex justify-between text-xs text-blue-400 font-medium">
+                        <span>수축 (-100 J)</span>
+                        <span>0</span>
+                        <span>팽창 (+100 J)</span>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div class="bg-slate-800 p-6 rounded-xl shadow-lg text-white">
+                    <h3 class="text-slate-300 text-sm font-semibold mb-2">내부에너지 변화 (ΔE) ⟶ 온도(T) 변화</h3>
+                    <div class="flex items-center gap-3 border-b border-slate-600 pb-4 mb-4 overflow-x-auto whitespace-nowrap">
+                        <span class="text-3xl math-text font-bold">ΔE</span>
+                        <span class="text-2xl">=</span>
+                        <span id="calc-q" class="text-2xl font-mono text-rose-400">+50</span>
+                        <span class="text-2xl">−</span>
+                        <span id="calc-w" class="text-2xl font-mono text-blue-400">(+20)</span>
+                        <span class="text-2xl">=</span>
+                        <span id="val-e" class="text-3xl font-bold font-mono text-emerald-400">+30 J</span>
+                    </div>
+                    <div class="flex justify-between items-end bg-slate-700/50 p-3 rounded-lg border border-slate-600">
+                        <p class="text-sm text-slate-300 font-medium">실제 온도 변화:</p>
+                        <p class="text-xl font-bold font-mono tracking-tight text-white">
+                            300 K ⟶ <span id="val-t2" class="text-emerald-400 text-2xl">330 K</span>
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right: Cylinder Visualization -->
+            <div class="theme-canvas-light flex-1 w-full flex justify-center items-center py-4 relative min-h-[450px] rounded-2xl">
+                <!-- Info Overlay -->
+                <div class="absolute top-0 right-0 bg-white/90 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-sm text-xs font-mono text-slate-600 z-10 pointer-events-none">
+                    [초기 상태 기준]<br>
+                    T₁ = 300 K<br>
+                    V₁ = 20.0 L
+                </div>
+                
+                <div id="cylinder-container" class="w-full">
+                    <!-- SVG gets injected here -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Initial fixed values
+        const T1 = 300; // Kelvin
+        const V1 = 20.0; // Liters (Modified as per request)
+
+        // Physical constants for the numerical conversion
+        const CV_TOTAL = 1.0; // J/K, effective heat capacity of the system
+        const P_EXT = 0.0987; // atm, constant external pressure for PV work
+        const J_PER_L_ATM = 101.325; // J per L·atm
+
+        function updateSimulation() {
+            // Get input values
+            const q = parseInt(document.getElementById('slider-q').value);
+            const w = parseInt(document.getElementById('slider-w').value);
+            
+            // Calculate Energy
+            const dE = q - w;
+            
+            // Calculate explicit T and V using physical relations
+            // dE = C_V,total * dT
+            const dT = dE / CV_TOTAL;
+            const T2 = T1 + dT;
+
+            // w = P_ext * dV  →  dV = w / P_ext
+            // Unit conversion: 1 L·atm = 101.325 J
+            const dV = w / (P_EXT * J_PER_L_ATM);
+            const V2 = V1 + dV;
+
+            // ================= Update UI Texts =================
+
+            // Q UI
+            const qEl = document.getElementById('val-q');
+            const calcQ = document.getElementById('calc-q');
+            if (q > 0) {
+                qEl.innerText = `+${q} J`;
+                calcQ.innerText = `+${q}`;
+            } else if (q < 0) {
+                qEl.innerText = `${q} J`;
+                calcQ.innerText = `(${q})`;
+            } else {
+                qEl.innerText = `0 J`;
+                calcQ.innerText = `0`;
+            }
+
+            // W & Volume UI
+            const wEl = document.getElementById('val-w');
+            const calcW = document.getElementById('calc-w');
+            const v2El = document.getElementById('val-v2');
+            if (w > 0) {
+                wEl.innerText = `+${w} J`;
+                calcW.innerText = `(+${w})`;
+                v2El.className = "text-blue-700 font-bold font-mono";
+            } else if (w < 0) {
+                wEl.innerText = `${w} J`;
+                calcW.innerText = `(${w})`;
+                v2El.className = "text-blue-700 font-bold font-mono";
+            } else {
+                wEl.innerText = `0 J`;
+                calcW.innerText = `(0)`;
+                v2El.className = "text-slate-500 font-bold font-mono";
+            }
+            v2El.innerText = `${V2.toFixed(1)} L`;
+
+            // dE & Temperature UI
+            const eEl = document.getElementById('val-e');
+            const t2El = document.getElementById('val-t2');
+            
+            if (dE > 0) {
+                eEl.innerText = `+${dE} J`;
+                eEl.className = "text-3xl font-bold font-mono text-rose-400";
+                t2El.className = "text-rose-400 text-2xl";
+            } else if (dE < 0) {
+                eEl.innerText = `${dE} J`;
+                eEl.className = "text-3xl font-bold font-mono text-blue-400";
+                t2El.className = "text-blue-400 text-2xl";
+            } else {
+                eEl.innerText = `0 J`;
+                eEl.className = "text-3xl font-bold font-mono text-slate-400";
+                t2El.className = "text-slate-400 text-2xl";
+            }
+            t2El.innerText = `${T2} K`;
+
+            // Draw graphic
+            drawCylinder(q, w, dE, T1, T2, V1, V2, dV);
+        }
+
+        function drawCylinder(q, w, dE, T1, T2, V1, V2, dV) {
+            const width = 160;
+            const ry = 18; 
+            
+            const xCenter = 240; // Shifted right for room
+            const yBase = 360;   // Cylinder bottom
+            
+            // Visual Scale: Max volume 30L should fit in cylinder.
+            // Let's set 30L = 270px height. 1L = 9px.
+            const pixPerLiter = 9;
+            const initialPistonY = yBase - (V1 * pixPerLiter);
+            const currentPistonY = yBase - (V2 * pixPerLiter);
+            const glassTubeTop = yBase - 300; // Room for 33L+
+
+            // Fluid Color Logic
+            let fluidColor = "#cbd5e1"; 
+            let fluidTopColor = "#e2e8f0"; 
+            if (dE > 0) {
+                const intensity = Math.min(dE / 200, 1);
+                fluidColor = `rgba(239, 68, 68, ${0.3 + intensity * 0.6})`; 
+                fluidTopColor = `rgba(248, 113, 113, ${0.4 + intensity * 0.6})`;
+            } else if (dE < 0) {
+                const intensity = Math.min(Math.abs(dE) / 200, 1);
+                fluidColor = `rgba(56, 189, 248, ${0.3 + intensity * 0.6})`; 
+                fluidTopColor = `rgba(125, 211, 252, ${0.4 + intensity * 0.6})`;
+            }
+
+            // ==========================================
+            // Volume Change (ΔV) Indicator (Left side)
+            // ==========================================
+            let dhVisual = "";
+            if (w !== 0) {
+                const yTop = Math.min(initialPistonY, currentPistonY);
+                const yBottom = Math.max(initialPistonY, currentPistonY);
+                const dhX = xCenter - width/2 - 20;
+                dhVisual = `
+                    <line x1="${dhX}" y1="${yTop}" x2="${dhX}" y2="${yBottom}" stroke="#475569" stroke-width="1.5"/>
+                    <polygon points="${dhX - 4},${yTop + 6} ${dhX + 4},${yTop + 6} ${dhX},${yTop}" fill="#475569"/>
+                    <polygon points="${dhX - 4},${yBottom - 6} ${dhX + 4},${yBottom - 6} ${dhX},${yBottom}" fill="#475569"/>
+                    <text x="${dhX - 8}" y="${(yTop + yBottom)/2 + 5}" font-size="14" text-anchor="end" class="font-bold" font-family="'Inter', monospace" fill="#2563eb">ΔV = ${dV > 0 ? '+' : ''}${dV.toFixed(1)} L</text>
+                `;
+            }
+
+            // ==========================================
+            // Thermometer (Outside, far left)
+            // ==========================================
+            const thermoX = 50;
+            const thermoBaseY = yBase - 150;
+            // Map T2 (100K to 500K) to height (0 to 100px).
+            let thermoLevel = ((T2 - 100) / 400) * 100; 
+            thermoLevel = Math.max(5, Math.min(thermoLevel, 100));
+            const liquidY = thermoBaseY + 105 - thermoLevel;
+            const thermoColor = dE > 0 ? '#ef4444' : (dE < 0 ? '#3b82f6' : '#94a3b8');
+
+            // ==========================================
+            // Label Layout (Zigzag leader lines to avoid overlap)
+            // ==========================================
+            const dist = Math.abs(currentPistonY - initialPistonY);
+            const needsOffset = dist < 25;
+            
+            let initYShift = 0;
+            let finalYShift = 0;
+            
+            if (needsOffset) {
+                if (currentPistonY >= initialPistonY) { // Compression or same
+                    initYShift = -25;
+                    finalYShift = 25;
+                } else { // Expansion
+                    initYShift = 25;
+                    finalYShift = -25;
+                }
+            }
+
+            const lblStartX = xCenter + width/2;
+            const lblMidX = lblStartX + 20;
+            const lblEndX = lblStartX + 45;
+            const textX = lblEndX + 5;
+
+            const svg = `
+                <svg width="100%" height="450" viewBox="0 0 540 450" style="overflow: visible;">
+                    <defs>
+                        <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#f1f5f9" stop-opacity="0.8"/>
+                            <stop offset="30%" stop-color="#ffffff" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="#cbd5e1" stop-opacity="0.8"/>
+                        </linearGradient>
+                        <linearGradient id="pistonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#64748b"/>
+                            <stop offset="50%" stop-color="#94a3b8"/>
+                            <stop offset="100%" stop-color="#475569"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Back rim of glass tube -->
+                    <ellipse cx="${xCenter}" cy="${glassTubeTop}" rx="${width/2}" ry="${ry}" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+
+                    <!-- Internal gas -->
+                    <path d="M ${xCenter - width/2} ${currentPistonY} 
+                             L ${xCenter - width/2} ${yBase} 
+                             A ${width/2} ${ry} 0 0 0 ${xCenter + width/2} ${yBase} 
+                             L ${xCenter + width/2} ${currentPistonY} Z" 
+                          fill="${fluidColor}" style="transition: all 0.3s ease;"/>
+                    <ellipse cx="${xCenter}" cy="${currentPistonY}" rx="${width/2}" ry="${ry}" fill="${fluidTopColor}" style="transition: fill 0.3s ease;"/>
+
+                    <!-- Thermometer (Outside) -->
+                    <g>
+                        <rect x="${thermoX - 7}" y="${thermoBaseY}" width="14" height="110" rx="7" fill="rgba(255,255,255,0.9)" stroke="#94a3b8"/>
+                        <rect x="${thermoX - 3}" y="${liquidY}" width="6" height="${thermoLevel}" fill="${thermoColor}" style="transition: all 0.3s ease;"/>
+                        <circle cx="${thermoX}" cy="${thermoBaseY + 115}" r="16" fill="${thermoColor}" stroke="#94a3b8" style="transition: fill 0.3s ease;"/>
+                        <text x="${thermoX}" y="${thermoBaseY + 145}" text-anchor="middle" font-size="16" font-family="'Inter', monospace" font-weight="bold" fill="${thermoColor}">${T2} K</text>
+                    </g>
+
+                    <!-- Initial State Leader -->
+                    <ellipse cx="${xCenter}" cy="${initialPistonY}" rx="${width/2}" ry="${ry}" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,4"/>
+                    <path d="M ${lblStartX} ${initialPistonY} L ${lblMidX} ${initialPistonY} L ${lblEndX} ${initialPistonY + initYShift} L ${lblEndX + 5} ${initialPistonY + initYShift}" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,4"/>
+                    <text x="${textX}" y="${initialPistonY + initYShift - 6}" font-size="12" fill="#64748b">처음 상태</text>
+                    <text x="${textX}" y="${initialPistonY + initYShift + 8}" font-size="11" font-family="'Inter', monospace" fill="#94a3b8">(V=${V1.toFixed(1)}L, T=${T1}K)</text>
+
+                    <!-- Piston -->
+                    <path d="M ${xCenter - width/2} ${currentPistonY} 
+                             L ${xCenter - width/2} ${currentPistonY - 12} 
+                             A ${width/2} ${ry} 0 0 0 ${xCenter + width/2} ${currentPistonY - 12} 
+                             L ${xCenter + width/2} ${currentPistonY} 
+                             A ${width/2} ${ry} 0 0 1 ${xCenter - width/2} ${currentPistonY} Z" 
+                          fill="#475569"/>
+                    <ellipse cx="${xCenter}" cy="${currentPistonY - 12}" rx="${width/2}" ry="${ry}" fill="url(#pistonGrad)"/>
+                    
+                    <!-- Final State Leader -->
+                    <path d="M ${lblStartX} ${currentPistonY} L ${lblMidX} ${currentPistonY} L ${lblEndX} ${currentPistonY + finalYShift} L ${lblEndX + 5} ${currentPistonY + finalYShift}" fill="none" stroke="#0f172a" stroke-width="1.5"/>
+                    <text x="${textX}" y="${currentPistonY + finalYShift - 6}" font-size="12" font-weight="bold" fill="#0f172a">나중 상태</text>
+                    <text x="${textX}" y="${currentPistonY + finalYShift + 8}" font-size="12" font-family="'Inter', monospace" font-weight="bold" fill="${dE !== 0 || w !== 0 ? '#0f172a' : '#64748b'}">(V=${V2.toFixed(1)}L, T=${T2}K)</text>
+
+                    <!-- Front Glass -->
+                    <path d="M ${xCenter - width/2} ${glassTubeTop} 
+                             L ${xCenter - width/2} ${yBase} 
+                             A ${width/2} ${ry} 0 0 0 ${xCenter + width/2} ${yBase} 
+                             L ${xCenter + width/2} ${glassTubeTop}" 
+                          fill="url(#glassGrad)" stroke="#94a3b8" stroke-width="1.5"/>
+                    <ellipse cx="${xCenter}" cy="${yBase}" rx="${width/2}" ry="${ry}" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+
+                    ${dhVisual}
+
+                    <!-- Temperature text overlay -->
+                    <text x="${xCenter}" y="${(yBase + currentPistonY) / 2 + 10}" text-anchor="middle" font-size="32" font-weight="bold" fill="rgba(0,0,0,0.4)">T = ${T2} K</text>
+                </svg>
+            `;
+
+            document.getElementById('cylinder-container').innerHTML = svg;
+        }
+
+        window.onload = updateSimulation;
+    </script>
+</body>
+</html>

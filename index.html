@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>일반화학 5장 기체 시뮬레이션</title>
+  <title>일반화학 인터랙티브 자료</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%234e7dbc'/><circle cx='20' cy='40' r='6' fill='%23ffffff' opacity='0.9'/><circle cx='44' cy='24' r='8' fill='%23ffffff' opacity='0.8'/><circle cx='34' cy='46' r='4' fill='%23ffffff' opacity='0.7'/><circle cx='24' cy='20' r='5' fill='%23ffffff' opacity='0.85'/></svg>">
   <style>
     :root {
-      --bg: #eef4fb;
-      --panel: rgba(255, 255, 255, 0.92);
       --text: #17263c;
       --muted: #5d7087;
       --line: rgba(76, 106, 141, 0.16);
@@ -27,6 +25,12 @@
       --accent-8: #4966a8;
       --accent-9: #5b7fcb;
       --accent-10: #5b79a8;
+      --accent-11: #4a8f87;
+      --accent-12: #5673b5;
+      --accent-13: #7b6dc5;
+      --accent-14: #3e8f74;
+      --accent-15: #a16b52;
+      --accent-16: #5d84bb;
     }
 
     * {
@@ -45,7 +49,7 @@
     }
 
     .page {
-      max-width: 1400px;
+      max-width: 1480px;
       margin: 0 auto;
       padding: 28px;
     }
@@ -76,7 +80,7 @@
 
     h1 {
       margin: 0;
-      font-size: clamp(4rem, 7vw, 6.2rem);
+      font-size: clamp(4rem, 7vw, 6rem);
       line-height: 0.98;
       letter-spacing: -0.04em;
     }
@@ -92,7 +96,7 @@
       position: relative;
       display: flex;
       flex-direction: column;
-      min-height: 260px;
+      min-height: 250px;
       padding: 22px;
       border-radius: 24px;
       background: linear-gradient(180deg, var(--card-a) 0%, var(--card-b) 100%);
@@ -223,8 +227,8 @@
   <main class="page">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">GENERAL CHEMISTRY • CHAPTER 5</p>
-        <h1>기체</h1>
+        <p class="eyebrow">GENERAL CHEMISTRY • INTERACTIVE MATERIALS</p>
+        <h1>일반화학</h1>
       </div>
     </section>
 
@@ -233,141 +237,128 @@
         <span class="chapter">5.1 Boyle</span>
         <h3>보일의 법칙</h3>
         <p>압력과 부피의 반비례 관계를 U자관 실험과 그래프로 확인합니다.</p>
-        <div class="meta">
-          <span class="pill">압력-부피</span>
-          <span class="pill">PV = 일정</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_1_Boyle.html">열기</a>
-          <a class="btn secondary" href="5_1_Boyle.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">압력-부피</span><span class="pill">PV = 일정</span></div>
+        <div class="actions"><a class="btn primary" href="5_1_Boyle.html">열기</a><a class="btn secondary" href="5_1_Boyle.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-2);">
         <span class="chapter">5.2 Charles</span>
         <h3>샤를의 법칙</h3>
         <p>온도 변화에 따른 기체 부피 변화를 시각적으로 살펴봅니다.</p>
-        <div class="meta">
-          <span class="pill">온도-부피</span>
-          <span class="pill">V ∝ T</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_2_Charles.html">열기</a>
-          <a class="btn secondary" href="5_2_Charles.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">온도-부피</span><span class="pill">V ∝ T</span></div>
+        <div class="actions"><a class="btn primary" href="5_2_Charles.html">열기</a><a class="btn secondary" href="5_2_Charles.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-3);">
         <span class="chapter">5.3 Dalton</span>
         <h3>돌턴의 부분 압력 법칙</h3>
         <p>혼합 기체의 전체 압력과 부분 압력의 합 관계를 확인합니다.</p>
-        <div class="meta">
-          <span class="pill">혼합 기체</span>
-          <span class="pill">Ptotal = ΣPi</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_3_PartialPressure.html">열기</a>
-          <a class="btn secondary" href="5_3_PartialPressure.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">혼합 기체</span><span class="pill">Ptotal = ΣPi</span></div>
+        <div class="actions"><a class="btn primary" href="5_3_PartialPressure.html">열기</a><a class="btn secondary" href="5_3_PartialPressure.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-4);">
         <span class="chapter">5.4 KMT</span>
         <h3>기체 분자 운동론</h3>
         <p>입자 운동과 충돌을 통해 이상기체 가정을 연결해 봅니다.</p>
-        <div class="meta">
-          <span class="pill">분자 운동</span>
-          <span class="pill">이상 기체</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_4_KMT.html">열기</a>
-          <a class="btn secondary" href="5_4_KMT.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">분자 운동</span><span class="pill">이상 기체</span></div>
+        <div class="actions"><a class="btn primary" href="5_4_KMT.html">열기</a><a class="btn secondary" href="5_4_KMT.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-5);">
         <span class="chapter">5.5 Real Gas</span>
         <h3>실제 기체</h3>
         <p>이상기체와 실제 기체의 차이를 비교하며 보정 개념을 확인합니다.</p>
-        <div class="meta">
-          <span class="pill">실제 기체</span>
-          <span class="pill">van der Waals</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_5_RealGas.html">열기</a>
-          <a class="btn secondary" href="5_5_RealGas.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">실제 기체</span><span class="pill">van der Waals</span></div>
+        <div class="actions"><a class="btn primary" href="5_5_RealGas.html">열기</a><a class="btn secondary" href="5_5_RealGas.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-6);">
         <span class="chapter">5.6 Effusion & Diffusion</span>
         <h3>분출과 확산</h3>
         <p>질량 차이에 따른 분출과 확산 속도 변화를 Graham 법칙과 함께 봅니다.</p>
-        <div class="meta">
-          <span class="pill">분출</span>
-          <span class="pill">확산</span>
-          <span class="pill">Graham</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_6_EffusionDiffusion.html">열기</a>
-          <a class="btn secondary" href="5_6_EffusionDiffusion.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">분출</span><span class="pill">확산</span><span class="pill">Graham</span></div>
+        <div class="actions"><a class="btn primary" href="5_6_EffusionDiffusion.html">열기</a><a class="btn secondary" href="5_6_EffusionDiffusion.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-7);">
         <span class="chapter">5.7 Avogadro</span>
         <h3>아보가드로의 법칙</h3>
         <p>일정한 온도와 압력에서 몰수와 부피의 비례 관계를 확인합니다.</p>
-        <div class="meta">
-          <span class="pill">몰수-부피</span>
-          <span class="pill">V ∝ n</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_7_Avogadro.html">열기</a>
-          <a class="btn secondary" href="5_7_Avogadro.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">몰수-부피</span><span class="pill">V ∝ n</span></div>
+        <div class="actions"><a class="btn primary" href="5_7_Avogadro.html">열기</a><a class="btn secondary" href="5_7_Avogadro.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-8);">
         <span class="chapter">5.8 PV=nRT</span>
         <h3>통합 기체 법칙</h3>
         <p>P, V, T, n 사이의 관계를 하나의 도구로 묶어 함께 확인합니다.</p>
-        <div class="meta">
-          <span class="pill">PV = nRT</span>
-          <span class="pill">통합 보기</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_8_PVnRT.html">열기</a>
-          <a class="btn secondary" href="5_8_PVnRT.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">PV = nRT</span><span class="pill">통합 보기</span></div>
+        <div class="actions"><a class="btn primary" href="5_8_PVnRT.html">열기</a><a class="btn secondary" href="5_8_PVnRT.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-9);">
         <span class="chapter">5.9 Maxwell-Boltzmann</span>
         <h3>맥스웰-볼츠만 속력 분포</h3>
         <p>온도와 몰질량이 속력 분포 곡선에 미치는 영향을 비교합니다.</p>
-        <div class="meta">
-          <span class="pill">속력 분포</span>
-          <span class="pill">KMT 확장</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_9_MaxwellDistribution.html">열기</a>
-          <a class="btn secondary" href="5_9_MaxwellDistribution.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">속력 분포</span><span class="pill">KMT 확장</span></div>
+        <div class="actions"><a class="btn primary" href="5_9_MaxwellDistribution.html">열기</a><a class="btn secondary" href="5_9_MaxwellDistribution.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
 
       <article class="card" style="--accent: var(--accent-10);">
         <span class="chapter">5.10 Critical Point</span>
         <h3>액화와 임계점</h3>
         <p>압력과 온도, 부피 변화에 따라 액화와 임계점을 시각적으로 살펴봅니다.</p>
-        <div class="meta">
-          <span class="pill">액화</span>
-          <span class="pill">Critical Point</span>
-        </div>
-        <div class="actions">
-          <a class="btn primary" href="5_10_CriticlaPoint.html">열기</a>
-          <a class="btn secondary" href="5_10_CriticlaPoint.html" target="_blank" rel="noopener noreferrer">새 탭</a>
-        </div>
+        <div class="meta"><span class="pill">액화</span><span class="pill">Critical Point</span></div>
+        <div class="actions"><a class="btn primary" href="5_10_CriticlaPoint.html">열기</a><a class="btn secondary" href="5_10_CriticlaPoint.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-11);">
+        <span class="chapter">6.1 Energy</span>
+        <h3>에너지</h3>
+        <p>운동에너지와 퍼텐셜 에너지의 전환을 직관적으로 살펴보는 자료입니다.</p>
+        <div class="meta"><span class="pill">KE</span><span class="pill">PE</span><span class="pill">보존</span></div>
+        <div class="actions"><a class="btn primary" href="6_1_Energy.html">열기</a><a class="btn secondary" href="6_1_Energy.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-12);">
+        <span class="chapter">6.2 First Law</span>
+        <h3>열역학 제1법칙</h3>
+        <p>q, w, ΔE의 관계와 온도·부피 변화를 함께 보여 주는 시뮬레이션입니다.</p>
+        <div class="meta"><span class="pill">ΔE = q - w</span><span class="pill">내부에너지</span></div>
+        <div class="actions"><a class="btn primary" href="6_2_1stLaw.html">열기</a><a class="btn secondary" href="6_2_1stLaw.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-13);">
+        <span class="chapter">6.3 Hess 1</span>
+        <h3>헤스의 법칙 1</h3>
+        <p>질소 산화물 반응을 단계별로 더해 보며 헤스 법칙의 기본 구조를 확인합니다.</p>
+        <div class="meta"><span class="pill">경로 독립성</span><span class="pill">ΔH 합</span></div>
+        <div class="actions"><a class="btn primary" href="6_3_Hess_1.html">열기</a><a class="btn secondary" href="6_3_Hess_1.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-14);">
+        <span class="chapter">6.3 Hess 2</span>
+        <h3>헤스의 법칙 2</h3>
+        <p>탄소 동소체 예시로 반응식의 뒤집기와 소거 과정을 단계적으로 보여 줍니다.</p>
+        <div class="meta"><span class="pill">탄소</span><span class="pill">반응식 조작</span></div>
+        <div class="actions"><a class="btn primary" href="6_3_Hess_2_Carbon.html">열기</a><a class="btn secondary" href="6_3_Hess_2_Carbon.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-15);">
+        <span class="chapter">6.3 Hess 3</span>
+        <h3>헤스의 법칙 3</h3>
+        <p>B₂H₆ 생성 반응을 긴 계산 과정으로 정리하는 연습용 자료입니다.</p>
+        <div class="meta"><span class="pill">계산형</span><span class="pill">B₂H₆</span></div>
+        <div class="actions"><a class="btn primary" href="6_3_Hess_3_B2H6.html">열기</a><a class="btn secondary" href="6_3_Hess_3_B2H6.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
+      </article>
+
+      <article class="card" style="--accent: var(--accent-16);">
+        <span class="chapter">6.3 Hess 4</span>
+        <h3>헤스의 법칙 4</h3>
+        <p>메테인 연소 경로를 수평 이동 방식으로 보여 주는 인터랙션입니다.</p>
+        <div class="meta"><span class="pill">CH₄</span><span class="pill">경로 시각화</span></div>
+        <div class="actions"><a class="btn primary" href="6_3_Hess_4_CH4.html">열기</a><a class="btn secondary" href="6_3_Hess_4_CH4.html" target="_blank" rel="noopener noreferrer">새 탭</a></div>
       </article>
     </section>
   </main>

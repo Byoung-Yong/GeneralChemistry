@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hess's Law Complex Calculation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Times+New+Roman:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            transition: font-size 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        .math-text {
+            font-family: 'Times New Roman', serif;
+        }
+
+        /* Fraction Styling */
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            font-size: 0.65em;
+            vertical-align: middle;
+            justify-content: center;
+            margin: 0 0.15rem;
+            text-align: center;
+            line-height: 1;
+        }
+        .frac > span:first-child {
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+        }
+        .frac > span:last-child {
+            padding-top: 1px;
+        }
+
+        /* Fade Animations */
+        .fade-in {
+            opacity: 0;
+            display: none;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-out;
+            transform: translateY(5px);
+        }
+        .fade-in.active {
+            opacity: 1;
+            display: flex;
+            transform: translateY(0);
+        }
+        .fade-in-block.active {
+            opacity: 1;
+            display: block;
+            transform: translateY(0);
+        }
+
+        /* Strikethrough Animations */
+        .strike-red, .strike-blue {
+            position: relative;
+            display: inline-block;
+        }
+        .strike-red::after, .strike-blue::after {
+            content: '';
+            position: absolute;
+            left: -5%;
+            top: 50%;
+            width: 0;
+            height: 2px;
+            transition: width 0.4s ease-out;
+            transform: translateY(-50%) rotate(-5deg);
+        }
+        .strike-red::after { background-color: #ef4444; }
+        .strike-blue::after { background-color: #3b82f6; }
+        
+        .strike-red.active::after, .strike-blue.active::after {
+            width: 110%;
+        }
+
+        /* Equation Row Flex Layout */
+        .eq-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-width: max-content; /* Prevent wrapping */
+            padding: 0.25rem 0;
+        }
+        .eq-label { width: 4rem; text-align: right; padding-right: 1rem; flex-shrink: 0; }
+        .eq-left { flex: 1; text-align: right; padding-right: 0.5rem; white-space: nowrap; }
+        .eq-arrow { width: 3rem; text-align: center; color: #64748b; flex-shrink: 0; }
+        .eq-right { flex: 1; text-align: left; padding-left: 0.5rem; white-space: nowrap; }
+        .eq-dh { width: 10rem; text-align: right; white-space: nowrap; flex-shrink: 0; }
+
+        /* Custom scrollbar for math workspace */
+        ::-webkit-scrollbar { height: 8px; width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Print Styles */
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; }
+            .shadow-md, .shadow-sm, .shadow-inner { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-5xl w-full flex flex-col gap-6">
+        
+        <!-- Top Toolbar (Font Size & Print) -->
+        <div class="flex justify-end items-center gap-5 w-full -mb-2 no-print">
+            <div class="theme-panel-white bg-slate-100 p-1 rounded-lg flex items-center shadow-inner border border-slate-200/50">
+                <button onclick="changeFontSize(-2)" id="btn-font-sm" class="px-4 py-1.5 text-sm font-black tracking-wider text-slate-600 hover:bg-white hover:shadow-sm hover:text-blue-600 rounded transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:cursor-not-allowed font-sans" title="글자 작게">A-</button>
+                <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                <button onclick="changeFontSize(2)" id="btn-font-lg" class="px-4 py-1.5 text-sm font-black tracking-wider text-slate-600 hover:bg-white hover:shadow-sm hover:text-blue-600 rounded transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:cursor-not-allowed font-sans" title="글자 크게">A+</button>
+            </div>
+            <button onclick="window.print()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer" title="Print">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Header & Target -->
+        <div class="theme-shell bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="theme-hero bg-slate-800 p-5 text-white">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="bg-blue-500/20 text-blue-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-blue-400/30">Hess's Law</span>
+                    <span class="text-sm text-slate-300 font-mono">예제 6.8</span>
+                </div>
+                <h1 class="text-lg md:text-xl font-bold tracking-tight mb-4">
+                    원소로부터 다이보레인(B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub>)을 합성할 때의 ΔH를 계산하라.
+                </h1>
+                <div class="theme-hero-box bg-slate-900/50 py-4 px-6 rounded-xl border border-slate-700 flex flex-col md:flex-row justify-center items-center gap-4">
+                    <span class="text-rose-400 font-bold text-sm">목표 반응식 :</span>
+                    <span class="math-text text-xl md:text-2xl font-bold tracking-wider text-center">
+                        2B<i>(s)</i> + 3H<sub class="text-base">2</sub><i>(g)</i> ⟶ B<sub class="text-base">2</sub>H<sub class="text-base">6</sub><i>(g)</i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Given Equations Table -->
+            <div class="theme-content p-4 md:p-5 bg-slate-50">
+                <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
+                    <table class="w-full text-left math-text text-base md:text-lg min-w-max">
+                        <thead class="bg-slate-200 text-slate-600 font-sans text-xs uppercase">
+                            <tr>
+                                <th class="py-2 px-3 text-center w-10"></th>
+                                <th class="py-2 px-4">주어진 반응식 (Reference)</th>
+                                <th class="py-2 px-4 text-right">ΔH</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-100">
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-3 text-center font-sans text-slate-400 font-bold text-sm">(a)</td>
+                                <td class="py-2 px-4">2B<i>(s)</i> + <div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i> ⟶ B<sub class="text-xs">2</sub>O<sub class="text-xs">3</sub><i>(s)</i></td>
+                                <td class="py-2 px-4 text-right text-slate-700">−1273 kJ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-3 text-center font-sans text-slate-400 font-bold text-sm">(b)</td>
+                                <td class="py-2 px-4">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + 3O<sub class="text-xs">2</sub><i>(g)</i> ⟶ B<sub class="text-xs">2</sub>O<sub class="text-xs">3</sub><i>(s)</i> + 3H<sub class="text-xs">2</sub>O<i>(g)</i></td>
+                                <td class="py-2 px-4 text-right text-slate-700">−2035 kJ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-3 text-center font-sans text-slate-400 font-bold text-sm">(c)</td>
+                                <td class="py-2 px-4">H<sub class="text-xs">2</sub><i>(g)</i> + <div class="frac"><span>1</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i> ⟶ H<sub class="text-xs">2</sub>O<i>(l)</i></td>
+                                <td class="py-2 px-4 text-right text-slate-700">−286 kJ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-3 text-center font-sans text-slate-400 font-bold text-sm">(d)</td>
+                                <td class="py-2 px-4">H<sub class="text-xs">2</sub>O<i>(l)</i> ⟶ H<sub class="text-xs">2</sub>O<i>(g)</i></td>
+                                <td class="py-2 px-4 text-right text-slate-700">44 kJ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculation Workspace -->
+        <div class="theme-shell bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <div class="theme-panel bg-indigo-50 border-b border-indigo-100 p-4 flex justify-between items-center">
+                <h2 class="font-bold text-indigo-900">단계별 식 더하기 (Step-by-Step Calculation)</h2>
+                <div id="step-indicator" class="bg-white px-3 py-1 rounded-full text-sm font-bold text-indigo-600 border border-indigo-200 shadow-sm">
+                    시작 전 (0 / 14)
+                </div>
+            </div>
+
+            <!-- Math Area -->
+            <div id="math-workspace" class="p-6 md:p-8 math-text text-lg md:text-xl text-slate-800 space-y-2 overflow-x-auto">
+                
+                <!-- BLOCK 1 -->
+                <div id="hint-1" class="fade-in fade-in-block bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-2 rounded-lg ml-16 mt-2 inline-block font-sans">
+                    💡 <b>목표 식의 반응물인 2B(s)</b>를 맞추기 위해 <b>식 (a)</b>를 그대로 가져옵니다.
+                </div>
+                <div id="l1-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm">(a)</div>
+                    <div class="eq-left">2B<i>(s)</i> + <div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right"><span class="strike-red" id="s1-b2o3-r">B<sub class="text-xs">2</sub>O<sub class="text-xs">3</sub><i>(s)</i></span></div>
+                    <div class="eq-dh text-slate-500">Δ<i>H</i> = −1273 kJ</div>
+                </div>
+
+                <div id="hint-2" class="fade-in fade-in-block bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-2 rounded-lg ml-16 mt-4 inline-block font-sans">
+                    💡 <b>목표 식의 생성물인 B₂H₆(g)</b>를 맞추기 위해 <b>식 (b)를 역반응</b>으로 뒤집어 가져옵니다. (ΔH 부호 반대)
+                </div>
+                <div id="l2-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm">−(b)</div>
+                    <div class="eq-left"><span class="strike-red" id="s1-b2o3-l">B<sub class="text-xs">2</sub>O<sub class="text-xs">3</sub><i>(s)</i></span> + 3H<sub class="text-xs">2</sub>O<i>(g)</i></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + <span class="strike-blue" id="s1-o2-r">3O<sub class="text-xs">2</sub><i>(g)</i></span><span class="fade-in text-blue-600 font-bold" id="s1-o2-rem" style="display:inline-block; margin-left:0.5rem;"><div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></span></div>
+                    <div class="eq-dh text-blue-600 font-bold">Δ<i>H</i> = −(−2035 kJ)</div>
+                </div>
+
+                <div id="l3-row" class="fade-in eq-row pt-2 mt-2 border-t border-slate-800 font-bold">
+                    <div class="eq-label text-slate-800 font-sans font-bold text-sm">합:</div>
+                    <div class="eq-left">2B<i>(s)</i> + <span class="strike-blue" id="s1-o2-l"><div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></span> + 3H<sub class="text-xs">2</sub>O<i>(g)</i></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right"><span class="strike-red" id="s1-b2o3-r2">B<sub class="text-xs">2</sub>O<sub class="text-xs">3</sub><i>(s)</i></span> + B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + 3O<sub class="text-xs">2</sub><i>(g)</i></div>
+                    <div class="eq-dh text-slate-800">Δ<i>H</i> = 762 kJ</div>
+                </div>
+
+                <div id="block-sep-1" class="h-8"></div>
+
+                <!-- BLOCK 2 -->
+                <div id="hint-3" class="fade-in fade-in-block bg-slate-100 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded-lg ml-16 inline-block font-sans">
+                    ✅ 중간 물질(B₂O₃)과 산소(O₂) 일부가 <b>소거(약분)된 1차 결과식</b>을 다시 씁니다.
+                </div>
+                <div id="l4-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm"></div>
+                    <div class="eq-left">2B<i>(s)</i> + 3H<sub class="text-xs">2</sub>O<i>(g)</i></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + <span class="strike-red" id="s2-o2-r"><div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></span></div>
+                    <div class="eq-dh text-slate-500">Δ<i>H</i> = 762 kJ</div>
+                </div>
+
+                <div id="hint-4" class="fade-in fade-in-block bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-2 rounded-lg ml-16 mt-4 inline-block font-sans">
+                    💡 <b>목표 식의 반응물인 3H₂(g)</b>를 맞추기 위해 <b>식 (c)에 3을 곱하여</b> 더해줍니다.
+                </div>
+                <div id="l5-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm">3 × (c)</div>
+                    <div class="eq-left">3[H<sub class="text-xs">2</sub><i>(g)</i> + <div class="frac"><span>1</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i>]</div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">3[H<sub class="text-xs">2</sub>O<i>(l)</i>]</div>
+                    <div class="eq-dh text-blue-600 font-bold">Δ<i>H</i> = 3(−286 kJ)</div>
+                </div>
+
+                <div id="l6-row" class="fade-in eq-row pt-2 mt-2 border-t border-slate-800 font-bold">
+                    <div class="eq-label text-slate-800 font-sans font-bold text-sm">합:</div>
+                    <div class="eq-left">2B<i>(s)</i> + 3H<sub class="text-xs">2</sub><i>(g)</i> + <span class="strike-red" id="s2-o2-l"><div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></span> + 3H<sub class="text-xs">2</sub>O<i>(g)</i></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + <span class="strike-red" id="s2-o2-r2"><div class="frac"><span>3</span><span>2</span></div>O<sub class="text-xs">2</sub><i>(g)</i></span> + 3H<sub class="text-xs">2</sub>O<i>(l)</i></div>
+                    <div class="eq-dh text-slate-800">Δ<i>H</i> = −96 kJ</div>
+                </div>
+
+                <div id="block-sep-2" class="h-8"></div>
+
+                <!-- BLOCK 3 -->
+                <div id="hint-5" class="fade-in fade-in-block bg-slate-100 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded-lg ml-16 inline-block font-sans">
+                    ✅ 남은 산소(O₂)가 모두 <b>소거된 2차 결과식</b>을 다시 씁니다.
+                </div>
+                <div id="l7-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm"></div>
+                    <div class="eq-left">2B<i>(s)</i> + 3H<sub class="text-xs">2</sub><i>(g)</i> + <span class="strike-blue" id="s3-h2og-l">3H<sub class="text-xs">2</sub>O<i>(g)</i></span></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + <span class="strike-red" id="s3-h2ol-r">3H<sub class="text-xs">2</sub>O<i>(l)</i></span></div>
+                    <div class="eq-dh text-slate-500">Δ<i>H</i> = −96 kJ</div>
+                </div>
+
+                <div id="hint-6" class="fade-in fade-in-block bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-2 rounded-lg ml-16 mt-4 inline-block font-sans">
+                    💡 <b>불필요한 물질인 물(H₂O)을 제거</b>하기 위해, 상태(l, g)를 맞춰 <b>식 (d)에 3을 곱하여</b> 더해줍니다.
+                </div>
+                <div id="l8-row" class="fade-in eq-row">
+                    <div class="eq-label text-slate-400 font-sans font-bold text-sm">3 × (d)</div>
+                    <div class="eq-left"><span class="strike-red" id="s3-h2ol-l">3[H<sub class="text-xs">2</sub>O<i>(l)</i>]</span></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right"><span class="strike-blue" id="s3-h2og-r">3[H<sub class="text-xs">2</sub>O<i>(g)</i>]</span></div>
+                    <div class="eq-dh text-blue-600 font-bold">Δ<i>H</i> = 3(44 kJ)</div>
+                </div>
+
+                <div id="l9-row" class="fade-in eq-row pt-2 mt-2 border-t border-slate-800 font-bold">
+                    <div class="eq-label text-slate-800 font-sans font-bold text-sm">합:</div>
+                    <div class="eq-left">2B<i>(s)</i> + 3H<sub class="text-xs">2</sub><i>(g)</i> + <span class="strike-blue" id="s3-h2og-l2">3H<sub class="text-xs">2</sub>O<i>(g)</i></span> + <span class="strike-red" id="s3-h2ol-l2">3H<sub class="text-xs">2</sub>O<i>(l)</i></span></div>
+                    <div class="eq-arrow">⟶</div>
+                    <div class="eq-right">B<sub class="text-xs">2</sub>H<sub class="text-xs">6</sub><i>(g)</i> + <span class="strike-red" id="s3-h2ol-r2">3H<sub class="text-xs">2</sub>O<i>(l)</i></span> + <span class="strike-blue" id="s3-h2og-r2">3H<sub class="text-xs">2</sub>O<i>(g)</i></span></div>
+                    <div class="eq-dh text-slate-800">Δ<i>H</i> = +36 kJ</div>
+                </div>
+
+                <!-- Final Target Match -->
+                <div id="final-result" class="fade-in fade-in-block bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6 mt-8 shadow-inner">
+                    <div class="flex flex-col md:flex-row justify-center items-center gap-6">
+                        <span class="font-sans font-bold text-indigo-600 uppercase tracking-widest text-sm bg-indigo-100 px-3 py-1 rounded">최종 결과식</span>
+                        <div class="font-bold text-xl md:text-2xl tracking-wide text-slate-900 whitespace-nowrap">
+                            2B<i>(s)</i> + 3H<sub class="text-base">2</sub><i>(g)</i> ⟶ B<sub class="text-base">2</sub>H<sub class="text-base">6</sub><i>(g)</i>
+                        </div>
+                        <div class="font-bold text-xl md:text-2xl text-rose-600 bg-white px-4 py-1 rounded-lg border border-rose-200 shadow-sm whitespace-nowrap">
+                            Δ<i>H</i> = +36 kJ
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Controls Footer -->
+            <div class="theme-panel-white bg-slate-100 p-4 md:p-6 border-t border-slate-200 flex justify-between items-center gap-4 no-print">
+                <button id="btn-prev" onclick="prevStep()" disabled class="theme-btn-secondary px-4 py-2.5 bg-white border border-slate-300 rounded-lg shadow-sm text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-sans whitespace-nowrap">
+                    ← 이전
+                </button>
+                <button id="btn-next" onclick="nextStep()" class="theme-btn-primary flex-1 md:flex-none px-6 md:px-12 py-2.5 bg-indigo-600 text-white rounded-lg shadow-md font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-sans text-base md:text-lg whitespace-nowrap text-center justify-center">
+                    다음 단계 진행 →
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentStep = 0;
+        const workspace = document.getElementById('math-workspace');
+
+        // Detailed steps mapping to DOM IDs
+        const stepsData = [
+            [], // 0: Init
+            ['hint-1', 'l1-row'], // 1: Eq a
+            ['hint-2', 'l2-row'], // 2: Eq -b
+            ['l3-row'], // 3: Sum 1
+            ['s1-b2o3-l', 's1-b2o3-r', 's1-b2o3-r2'], // 4: Cross out B2O3
+            ['s1-o2-l', 's1-o2-r', 's1-o2-rem'], // 5: Simplify O2 in sum 1
+            ['hint-3', 'l4-row'], // 6: Show simplified Sum 1
+            ['hint-4', 'l5-row'], // 7: Eq 3*c
+            ['l6-row'], // 8: Sum 2
+            ['s2-o2-l', 's2-o2-r', 's2-o2-r2'], // 9: Cross out remaining O2
+            ['hint-5', 'l7-row'], // 10: Show simplified Sum 2
+            ['hint-6', 'l8-row'], // 11: Eq 3*d
+            ['l9-row'], // 12: Sum 3
+            ['s3-h2og-l', 's3-h2og-r', 's3-h2og-l2', 's3-h2og-r2', 's3-h2ol-l', 's3-h2ol-r', 's3-h2ol-l2', 's3-h2ol-r2'], // 13: Cross out H2O(l) and H2O(g)
+            ['final-result'] // 14: Final result
+        ];
+
+        const totalSteps = stepsData.length - 1;
+
+        function resetAll() {
+            // Hide all step elements
+            document.querySelectorAll('.fade-in').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.strike-red, .strike-blue').forEach(el => {
+                el.classList.remove('active');
+            });
+        }
+
+        function updateUI() {
+            resetAll();
+            
+            // Re-apply up to current step
+            for (let i = 1; i <= currentStep; i++) {
+                const elements = stepsData[i];
+                elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.classList.add('active');
+                });
+            }
+
+            // Update buttons & indicator
+            document.getElementById('btn-prev').disabled = currentStep === 0;
+            document.getElementById('btn-next').disabled = currentStep === totalSteps;
+            
+            let status = "";
+            if(currentStep === 0) status = "시작 전";
+            else if(currentStep === totalSteps) status = "계산 완료!";
+            else status = `계산 중...`;
+            
+            document.getElementById('step-indicator').innerText = `${status} (Step ${currentStep} / ${totalSteps})`;
+
+            // Auto-scroll to bottom of workspace if progressing
+            setTimeout(() => {
+                workspace.scrollTo({
+                    top: workspace.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 50);
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateUI();
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateUI();
+            }
+        }
+
+        // Incremental Font Size Logic
+        let baseFontSize = 16; // 기본 폰트 사이즈 (16px)
+        const minFontSize = 10; // 최소 폰트 사이즈
+        const maxFontSize = 26; // 최대 폰트 사이즈
+
+        function changeFontSize(step) {
+            baseFontSize += step;
+            
+            // 제한선(Clamp) 적용
+            if (baseFontSize <= minFontSize) baseFontSize = minFontSize;
+            if (baseFontSize >= maxFontSize) baseFontSize = maxFontSize;
+            
+            // HTML 루트(Root) 요소에 폰트 사이즈 적용
+            document.documentElement.style.fontSize = baseFontSize + 'px';
+
+            // 버튼 활성/비활성 상태 업데이트
+            const btnSm = document.getElementById('btn-font-sm');
+            const btnLg = document.getElementById('btn-font-lg');
+            
+            btnSm.disabled = (baseFontSize === minFontSize);
+            btnLg.disabled = (baseFontSize === maxFontSize);
+        }
+
+        // Init
+        window.onload = updateUI;
+
+    </script>
+</body>
+</html>

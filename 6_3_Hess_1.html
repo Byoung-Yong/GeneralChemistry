@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hess's Law Animation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Times+New+Roman:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f6f8;
+            color: #1e293b;
+        }
+
+        .math-text {
+            font-family: 'Times New Roman', serif;
+        }
+
+        /* SVG Arrow Animation via Clip-Path */
+        .clip-up {
+            clip-path: inset(100% 0 0 0);
+            transition: clip-path 1s ease-in-out;
+        }
+        .clip-up.active {
+            clip-path: inset(0 0 0 0);
+        }
+
+        .clip-down {
+            clip-path: inset(0 0 100% 0);
+            transition: clip-path 1s ease-in-out;
+        }
+        .clip-down.active {
+            clip-path: inset(0 0 0 0);
+        }
+
+        /* Fade Animations */
+        .fade-in {
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out, transform 0.6s ease-out;
+            transform: translateY(10px);
+        }
+        .fade-in.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Strikethrough Animation */
+        .strike {
+            position: relative;
+            display: inline-block;
+        }
+        .strike::after {
+            content: '';
+            position: absolute;
+            left: -5%;
+            top: 50%;
+            width: 0;
+            height: 2px;
+            background-color: #ef4444; /* red-500 */
+            transition: width 0.5s ease-out;
+            transform: translateY(-50%);
+        }
+        .strike.active::after {
+            width: 110%;
+        }
+
+        /* Highlight Animation */
+        .highlight {
+            transition: color 0.3s ease, font-weight 0.3s ease;
+        }
+        .highlight.active {
+            color: #3b82f6; /* blue-500 */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-8 flex justify-center items-start">
+
+    <div class="theme-shell max-w-6xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        
+        <!-- Header -->
+        <div class="theme-hero bg-indigo-50 border-b border-indigo-100 p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Thermodynamics</span>
+                <h1 class="text-2xl md:text-3xl font-bold text-indigo-900 tracking-tight">
+                    헤스의 법칙 (Hess's Law)
+                </h1>
+            </div>
+            <p class="text-indigo-800 font-medium text-lg mt-2">
+                "화학 반응에서 반응물과 생성물이 같다면, 반응 경로(단계)에 관계없이 엔탈피 변화량(ΔH)의 총합은 항상 같다."
+            </p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="theme-content flex flex-col lg:flex-row p-6 md:p-8 gap-8 lg:gap-12">
+            
+            <!-- Left: Equations & Math -->
+            <div class="flex-1 w-full flex flex-col space-y-6">
+                
+                <div class="theme-panel bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm relative flex-1">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">반응식 비교 및 계산</h3>
+                    
+                    <!-- Table for equations alignment -->
+                    <div id="eq-container" class="math-text text-lg md:text-xl w-full flex flex-col gap-2">
+                        
+                        <!-- Step 1: Direct -->
+                        <div id="eq-1" class="flex justify-between items-center transition-opacity duration-300 opacity-0 mb-4 font-bold text-slate-800">
+                            <div class="flex-1 text-right">N<sub class="text-sm">2</sub><i class="text-sm">(g)</i> + 2O<sub class="text-sm">2</sub><i class="text-sm">(g)</i></div>
+                            <div class="px-4 text-slate-600">⟶</div>
+                            <div class="flex-1 text-left">2NO<sub class="text-sm">2</sub><i class="text-sm">(g)</i></div>
+                            <div class="w-32 text-right text-rose-600">Δ<i class="italic">H</i><sub>1</sub> = 68 kJ</div>
+                        </div>
+
+                        <!-- Step 2 Intro -->
+                        <div id="eq-2-intro" class="text-sm font-sans text-slate-600 mb-2 transition-opacity duration-300 opacity-0">위 반응을 두 단계로 나누어 쓸 수 있으며,</div>
+
+                        <!-- Step 2: Step-by-step -->
+                        <div id="eq-2-1" class="flex justify-between items-center transition-opacity duration-300 opacity-0">
+                            <div class="flex-1 text-right">N<sub class="text-sm">2</sub><i class="text-sm">(g)</i> + <span id="o2-1" class="highlight">O<sub class="text-sm">2</sub><i class="text-sm">(g)</i></span></div>
+                            <div class="px-4 text-slate-400">⟶</div>
+                            <div class="flex-1 text-left"><span class="strike" id="cancel1">2NO<i class="text-sm">(g)</i></span></div>
+                            <div class="w-32 text-right text-blue-600 font-bold">Δ<i class="italic">H</i><sub>2</sub> = 180 kJ</div>
+                        </div>
+
+                        <div id="eq-2-2" class="flex justify-between items-center transition-opacity duration-300 opacity-0">
+                            <div class="flex-1 text-right"><span class="strike" id="cancel2">2NO<i class="text-sm">(g)</i></span> + <span id="o2-2" class="highlight">O<sub class="text-sm">2</sub><i class="text-sm">(g)</i></span></div>
+                            <div class="px-4 text-slate-400">⟶</div>
+                            <div class="flex-1 text-left">2NO<sub class="text-sm">2</sub><i class="text-sm">(g)</i></div>
+                            <div class="w-32 text-right text-blue-600 font-bold">Δ<i class="italic">H</i><sub>3</sub> = -112 kJ</div>
+                        </div>
+
+                        <!-- Divider Line -->
+                        <div id="math-divider" class="w-full h-px bg-slate-400 my-2 transition-opacity duration-300 opacity-0"></div>
+
+                        <!-- Net Reaction -->
+                        <div id="eq-net" class="flex justify-between items-center bg-rose-50 p-2 rounded-lg border border-rose-100 transition-opacity duration-300 opacity-0">
+                            <div class="flex-1 text-right font-bold text-slate-800">
+                                <span class="mr-2 md:mr-6 text-sm text-rose-600 font-sans tracking-tight">알짜 반응:</span>
+                                N<sub class="text-sm">2</sub><i class="text-sm">(g)</i> + <span id="o2-net" class="text-blue-600 font-bold highlight">2O<sub class="text-sm">2</sub><i class="text-sm">(g)</i></span>
+                            </div>
+                            <div class="px-2 md:px-4 text-slate-800 font-bold">⟶</div>
+                            <div class="flex-1 text-left font-bold text-slate-800">2NO<sub class="text-sm">2</sub><i class="text-sm">(g)</i></div>
+                            <div class="w-48 text-right text-rose-600 font-bold">Δ<i class="italic">H</i><sub>2</sub> + Δ<i class="italic">H</i><sub>3</sub> = 68 kJ</div>
+                        </div>
+
+                    </div>
+
+                    <!-- Formula Explanation -->
+                    <div id="eq-conclusion" class="mt-6 pt-4 border-t border-slate-200 transition-opacity duration-300 opacity-0">
+                        <p class="text-sm text-slate-600 font-medium mb-2 font-sans">두 단계의 합이 전체 반응이 되며,</p>
+                        <div class="math-text text-xl font-bold text-slate-800 text-center bg-white py-3 rounded border border-slate-200">
+                            Δ<i class="italic">H</i><sub>1</sub> = Δ<i class="italic">H</i><sub>2</sub> + Δ<i class="italic">H</i><sub>3</sub> = 68 kJ
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="theme-panel-white flex justify-between items-center bg-slate-100 p-3 md:p-4 rounded-xl border border-slate-200 mt-auto">
+                    <button id="btn-prev" onclick="prevStep()" disabled class="theme-btn-secondary px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                        ← 이전
+                    </button>
+                    <div id="step-indicator" class="font-bold text-slate-700 text-center font-sans text-sm md:text-base px-2">
+                        시작 전 (0 / 6)
+                    </div>
+                    <button id="btn-next" onclick="nextStep()" class="theme-btn-primary px-4 md:px-6 py-2 bg-indigo-600 text-white rounded-lg shadow-md font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1">
+                        다음 <span class="hidden md:inline">단계</span> →
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: SVG Diagram -->
+            <div class="theme-canvas-light flex-1 w-full bg-white rounded-xl shadow-inner border border-slate-200 p-4 flex justify-center items-center min-h-[400px]">
+                <div class="w-full max-w-[500px]">
+                    <svg width="100%" height="400" viewBox="0 0 500 400" style="overflow: visible;">
+                        <defs>
+                            <marker id="arrowRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+                            </marker>
+                            <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+                            </marker>
+                            
+                            <!-- Yellow gradient for H axis -->
+                            <linearGradient id="axisGrad" x1="0" y1="1" x2="0" y2="0">
+                                <stop offset="0%" stop-color="#fde047" />
+                                <stop offset="100%" stop-color="#fbbf24" />
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Enthalpy Axis (Left) -->
+                        <g>
+                            <polygon points="25,320 45,320 45,60 55,60 35,30 15,60 25,60" fill="url(#axisGrad)"/>
+                            <text x="-200" y="40" transform="rotate(-90)" font-size="18" class="math-text font-bold" fill="#854d0e">H (kJ)</text>
+                        </g>
+
+                        <!-- ===================== -->
+                        <!-- Path A: One-Step      -->
+                        <!-- ===================== -->
+                        <g id="diagram-a" class="opacity-30 transition-opacity duration-300">
+                            <!-- Base Line (0 kJ) -->
+                            <line x1="70" y1="320" x2="230" y2="320" stroke="#000" stroke-width="2.5"/>
+                            <text x="150" y="310" text-anchor="middle" font-size="16" class="math-text">N<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan>, 2O<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan></text>
+                            
+                            <!-- Target Line (68 kJ) -->
+                            <!-- Mapping: H=0 -> 320, H=180 -> 60. Height = 260. Y = 320 - (H/180)*260 -->
+                            <!-- Y(68) = 320 - (68/180)*260 = 320 - 98.2 = 221.8 -->
+                            <line x1="70" y1="222" x2="230" y2="222" stroke="#000" stroke-width="2.5"/>
+                            <text x="150" y="212" text-anchor="middle" font-size="16" class="math-text">2NO<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan></text>
+
+                            <!-- Red Arrow ΔH1 -->
+                            <g id="arrow-path-a" class="clip-up">
+                                <line x1="120" y1="320" x2="120" y2="226" stroke="#ef4444" stroke-width="4" marker-end="url(#arrowRed)"/>
+                                <text x="130" y="275" font-size="16" fill="#ef4444" class="math-text font-bold">ΔH<tspan dy="5" font-size="12">1</tspan><tspan dy="-5"> = 68 kJ</tspan></text>
+                            </g>
+
+                            <!-- Label 'a' -->
+                            <line x1="50" y1="360" x2="250" y2="360" stroke="#ea580c" stroke-width="2"/>
+                            <rect x="70" y="352" width="20" height="16" fill="#ea580c" rx="2"/>
+                            <text x="80" y="364" fill="white" font-size="12" font-weight="bold" text-anchor="middle">a</text>
+                            <text x="70" y="380" font-size="14" fill="#334155" font-family="'Inter', sans-serif">한-단계 반응</text>
+                        </g>
+
+                        <!-- ===================== -->
+                        <!-- Path B: Two-Step      -->
+                        <!-- ===================== -->
+                        <g id="diagram-b" class="opacity-30 transition-opacity duration-300">
+                            <!-- Base Line (0 kJ) -->
+                            <line x1="270" y1="320" x2="440" y2="320" stroke="#000" stroke-width="2.5"/>
+                            <text x="355" y="310" text-anchor="middle" font-size="16" class="math-text">N<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan>, 2O<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan></text>
+                            
+                            <!-- Top Line (180 kJ) -->
+                            <!-- Y(180) = 60 -->
+                            <line x1="270" y1="60" x2="480" y2="60" stroke="#000" stroke-width="2.5"/>
+                            <text x="375" y="50" text-anchor="middle" font-size="16" class="math-text">O<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan>, 2NO<tspan dy="5" font-size="12">(g)</tspan></text>
+
+                            <!-- Middle Line (68 kJ) -->
+                            <!-- Y(68) = 222 -->
+                            <line x1="390" y1="222" x2="480" y2="222" stroke="#000" stroke-width="2.5"/>
+                            <text x="435" y="212" text-anchor="middle" font-size="16" class="math-text">2NO<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">(g)</tspan></text>
+
+                            <!-- Blue Arrow UP ΔH2 -->
+                            <g id="arrow-path-b1" class="clip-up">
+                                <line x1="350" y1="320" x2="350" y2="64" stroke="#3b82f6" stroke-width="4" marker-end="url(#arrowBlue)"/>
+                                <text x="340" y="180" font-size="16" fill="#3b82f6" text-anchor="end" class="math-text font-bold">ΔH<tspan dy="5" font-size="12">2</tspan><tspan dy="-5"> = 180 kJ</tspan></text>
+                            </g>
+
+                            <!-- Blue Arrow DOWN ΔH3 -->
+                            <g id="arrow-path-b2" class="clip-down">
+                                <line x1="420" y1="60" x2="420" y2="218" stroke="#3b82f6" stroke-width="4" marker-end="url(#arrowBlue)"/>
+                                <text x="430" y="140" font-size="16" fill="#3b82f6" class="math-text font-bold">ΔH<tspan dy="5" font-size="12">3</tspan><tspan dy="-5"> = -112 kJ</tspan></text>
+                            </g>
+
+                            <!-- Red Arrow UP ΔH (Net) -->
+                            <g id="arrow-path-b-net" class="clip-up">
+                                <line x1="400" y1="320" x2="400" y2="226" stroke="#ef4444" stroke-width="3" marker-end="url(#arrowRed)"/>
+                                <text x="410" y="280" font-size="16" fill="#ef4444" class="math-text font-bold">ΔH</text>
+                            </g>
+
+                            <!-- Label 'b' -->
+                            <line x1="260" y1="360" x2="480" y2="360" stroke="#ea580c" stroke-width="2"/>
+                            <rect x="270" y="352" width="20" height="16" fill="#ea580c" rx="2"/>
+                            <text x="280" y="364" fill="white" font-size="12" font-weight="bold" text-anchor="middle">b</text>
+                            <text x="270" y="380" font-size="14" fill="#334155" font-family="'Inter', sans-serif">두-단계 반응</text>
+                        </g>
+
+                    </svg>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const diagA = document.getElementById('diagram-a');
+        const arrowA = document.getElementById('arrow-path-a');
+        
+        const diagB = document.getElementById('diagram-b');
+        const arrowB1 = document.getElementById('arrow-path-b1');
+        const arrowB2 = document.getElementById('arrow-path-b2');
+        const arrowBNet = document.getElementById('arrow-path-b-net');
+
+        const cancel1 = document.getElementById('cancel1');
+        const cancel2 = document.getElementById('cancel2');
+        const o2_1 = document.getElementById('o2-1');
+        const o2_2 = document.getElementById('o2-2');
+        const o2_net = document.getElementById('o2-net');
+
+        // Step Controller
+        let currentStep = 0;
+        const maxSteps = 6;
+        
+        const stepTexts = [
+            "준비 (0 / 6)",
+            "1. 한-단계 반응 (경로 a)",
+            "2. 두-단계 반응 - 첫 번째 단계",
+            "3. 두-단계 반응 - 두 번째 단계",
+            "4. 식 더하기 (중간 물질 소거)",
+            "5. 알짜 반응 확인",
+            "6. 헤스의 법칙 결론"
+        ];
+
+        function resetStates() {
+            // Equations
+            const eqIds = ['eq-1', 'eq-2-intro', 'eq-2-1', 'eq-2-2', 'math-divider', 'eq-net', 'eq-conclusion'];
+            eqIds.forEach(id => {
+                document.getElementById(id).classList.replace('opacity-100', 'opacity-0');
+            });
+
+            // Diagrams
+            diagA.classList.replace('opacity-100', 'opacity-30');
+            diagB.classList.replace('opacity-100', 'opacity-30');
+
+            // Animations
+            const animIds = ['arrow-path-a', 'arrow-path-b1', 'arrow-path-b2', 'arrow-path-b-net', 'cancel1', 'cancel2', 'o2-1', 'o2-2', 'o2-net'];
+            animIds.forEach(id => {
+                document.getElementById(id).classList.remove('active');
+            });
+        }
+
+        function updateStep() {
+            // Update Buttons
+            document.getElementById('btn-prev').disabled = currentStep === 0;
+            document.getElementById('btn-next').disabled = currentStep === maxSteps;
+            document.getElementById('step-indicator').innerText = stepTexts[currentStep];
+
+            // Reset UI first
+            resetStates();
+
+            // Re-apply states based on currentStep (Cumulative)
+            // Step 1
+            if (currentStep >= 1) {
+                diagA.classList.replace('opacity-30', 'opacity-100');
+                arrowA.classList.add('active');
+                document.getElementById('eq-1').classList.replace('opacity-0', 'opacity-100');
+            }
+            
+            // Step 2
+            if (currentStep >= 2) {
+                diagA.classList.replace('opacity-100', 'opacity-30');
+                diagB.classList.replace('opacity-30', 'opacity-100');
+                arrowB1.classList.add('active');
+                document.getElementById('eq-2-intro').classList.replace('opacity-0', 'opacity-100');
+                document.getElementById('eq-2-1').classList.replace('opacity-0', 'opacity-100');
+            }
+            
+            // Step 3
+            if (currentStep >= 3) {
+                arrowB2.classList.add('active');
+                document.getElementById('eq-2-2').classList.replace('opacity-0', 'opacity-100');
+            }
+            
+            // Step 4
+            if (currentStep >= 4) {
+                document.getElementById('math-divider').classList.replace('opacity-0', 'opacity-100');
+                cancel1.classList.add('active');
+                cancel2.classList.add('active');
+                o2_1.classList.add('active');
+                o2_2.classList.add('active');
+            }
+            
+            // Step 5
+            if (currentStep >= 5) {
+                arrowBNet.classList.add('active');
+                document.getElementById('eq-net').classList.replace('opacity-0', 'opacity-100');
+                o2_net.classList.add('active');
+            }
+            
+            // Step 6
+            if (currentStep >= 6) {
+                document.getElementById('eq-conclusion').classList.replace('opacity-0', 'opacity-100');
+                // Bring Diagram A back to 100% for final comparison
+                diagA.classList.replace('opacity-30', 'opacity-100');
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < maxSteps) {
+                currentStep++;
+                updateStep();
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateStep();
+            }
+        }
+
+        // Initialize state on load
+        window.onload = () => {
+            updateStep();
+        };
+
+    </script>
+</body>
+</html>

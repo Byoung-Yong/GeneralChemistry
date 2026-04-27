@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hess's Law - Strictly Horizontal Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Times+New+Roman:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        html { transition: font-size 0.3s ease; }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .math-text { font-family: 'Times New Roman', serif; }
+        
+        /* Side-by-Side Layout Fixed */
+        .app-grid {
+            display: grid;
+            grid-template-columns: 7fr 3fr;
+            gap: 1.5rem;
+            height: calc(100vh - 140px);
+            min-height: 550px;
+        }
+
+        /* Physical Movement Transition */
+        .moving-atom {
+            transition: cx 1s cubic-bezier(0.4, 0, 0.2, 1), cy 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* UI Elements Fade */
+        .ui-fade {
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .ui-fade.active { opacity: 1; }
+
+        /* Cumulative Bar */
+        .bar-chart {
+            transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), y 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.4s;
+        }
+        .bar-label {
+            transition: y 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.4s;
+            font-weight: 800;
+        }
+
+        /* Ghost Trace - Set to 0.1 as requested */
+        .ghost-trace {
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+            pointer-events: none;
+        }
+        .ghost-trace.active {
+            opacity: 0.1;
+        }
+
+        @media (max-width: 1100px) {
+            .app-grid { grid-template-columns: 1fr; overflow-y: auto; height: auto; }
+            body { overflow: auto; }
+        }
+    </style>
+</head>
+<body class="theme-page p-4 md:p-6 lg:p-8">
+
+    <div class="max-w-[1600px] mx-auto flex flex-col gap-6 h-full">
+        
+        <!-- Header -->
+        <header class="theme-hero bg-slate-900 p-5 rounded-3xl shadow-xl text-white flex flex-col md:flex-row justify-between items-center gap-4 shrink-0 border-b-4 border-indigo-500">
+            <div>
+                <h1 class="text-xl font-black text-blue-400 tracking-tighter uppercase">Hess's Law Interaction</h1>
+                <p class="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">Horizontal Pathway - Correct Alignment</p>
+            </div>
+            <div class="theme-hero-box math-text text-xl lg:text-3xl font-bold tracking-widest px-10 py-3 bg-white/5 rounded-2xl border border-white/10 shadow-inner text-center">
+                CH<sub>4</sub> + 2O<sub>2</sub> ⟶ CO<sub>2</sub> + 2H<sub>2</sub>O
+            </div>
+            <div class="flex gap-2">
+                <button onclick="changeFontSize(-1)" class="theme-btn-secondary bg-slate-800 p-2 rounded-lg hover:bg-slate-700 font-bold text-xs transition-colors">A-</button>
+                <button onclick="changeFontSize(1)" class="theme-btn-secondary bg-slate-800 p-2 rounded-lg hover:bg-slate-700 font-bold text-xs transition-colors">A+</button>
+            </div>
+        </header>
+
+        <div class="app-grid">
+            
+            <!-- LEFT: Diagram (70%) -->
+            <section class="theme-panel-white bg-white rounded-[2.5rem] shadow-md border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="bg-indigo-50/50 p-4 border-b border-indigo-100 flex justify-between items-center shrink-0">
+                    <span class="text-indigo-900 font-black text-xs uppercase tracking-widest">Pathway Simulation</span>
+                    <span id="step-badge" class="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-xs font-black tracking-widest">STEP 0 / 4</span>
+                </div>
+
+                <div class="flex-1 relative flex items-center justify-center p-4">
+                    <svg width="100%" height="100%" viewBox="0 0 850 450" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                            </marker>
+                            <radialGradient id="gradC" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#94a3b8"/><stop offset="50%" stop-color="#334155"/><stop offset="100%" stop-color="#0f172a"/></radialGradient>
+                            <radialGradient id="gradO" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fca5a5"/><stop offset="50%" stop-color="#dc2626"/><stop offset="100%" stop-color="#7f1d1d"/></radialGradient>
+                            <radialGradient id="gradH" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#e0f2fe"/><stop offset="50%" stop-color="#7dd3fc"/><stop offset="100%" stop-color="#0369a1"/></radialGradient>
+                        </defs>
+
+                        <!-- Content Boxes (Boundary check for molecules) -->
+                        <g opacity="0.4">
+                            <rect x="30" y="60" width="180" height="360" fill="#f5f3ff" rx="30" stroke="#ddd6fe" stroke-width="2"/>
+                            <text x="120" y="45" text-anchor="middle" font-weight="900" fill="#6d28d9" font-size="14">REACTANTS</text>
+
+                            <rect x="330" y="60" width="180" height="360" fill="#fffbeb" rx="30" stroke="#fde68a" stroke-width="2"/>
+                            <text x="420" y="45" text-anchor="middle" font-weight="900" fill="#d97706" font-size="14">ELEMENTS</text>
+
+                            <rect x="630" y="60" width="180" height="360" fill="#f0fdf4" rx="30" stroke="#bbf7d0" stroke-width="2"/>
+                            <text x="720" y="45" text-anchor="middle" font-weight="900" fill="#15803d" font-size="14">PRODUCTS</text>
+                        </g>
+
+                        <!-- Ghost Shadow Layer (0.1 Opacity) -->
+                        <g id="ghost-layer"></g>
+
+                        <!-- Horizontal Arrows (No angles, strictly lateral) -->
+                        <g id="path-a" class="ui-fade">
+                            <line x1="220" y1="130" x2="320" y2="130" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                            <text x="270" y="120" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">ΔH(a) +75 kJ</text>
+                        </g>
+                        <g id="path-b" class="ui-fade">
+                            <line x1="220" y1="330" x2="320" y2="330" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                            <text x="270" y="320" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">ΔH(b) 0 kJ</text>
+                        </g>
+                        <g id="path-c" class="ui-fade">
+                            <line x1="520" y1="130" x2="620" y2="130" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                            <text x="570" y="120" text-anchor="middle" font-size="12" font-weight="bold" fill="#dc2626">ΔH(c) -394 kJ</text>
+                        </g>
+                        <g id="path-d" class="ui-fade">
+                            <line x1="520" y1="290" x2="620" y2="290" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                            <text x="570" y="280" text-anchor="middle" font-size="12" font-weight="bold" fill="#dc2626">ΔH(d) -572 kJ</text>
+                        </g>
+
+                        <!-- Moving Atoms (Only one set moving) -->
+                        <g id="live-atoms">
+                            <circle id="atom-o1" class="moving-atom" fill="url(#gradO)"/>
+                            <circle id="atom-o2" class="moving-atom" fill="url(#gradO)"/>
+                            <circle id="atom-o3" class="moving-atom" fill="url(#gradO)"/>
+                            <circle id="atom-o4" class="moving-atom" fill="url(#gradO)"/>
+                            <circle id="atom-c1" class="moving-atom" fill="url(#gradC)"/>
+                            <circle id="atom-h1" class="moving-atom" fill="url(#gradH)"/>
+                            <circle id="atom-h2" class="moving-atom" fill="url(#gradH)"/>
+                            <circle id="atom-h3" class="moving-atom" fill="url(#gradH)"/>
+                            <circle id="atom-h4" class="moving-atom" fill="url(#gradH)"/>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- Footer Nav -->
+                <div class="theme-panel p-6 bg-slate-50 border-t flex flex-col items-center gap-4 shrink-0">
+                    <div id="status-text" class="text-lg font-bold text-slate-700 min-h-[1.5rem]">준비 단계: 반응물 분자 상태</div>
+                    <div class="flex gap-4 w-full max-w-md">
+                        <button id="btn-prev" onclick="moveSim(-1)" disabled class="theme-btn-secondary flex-1 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-500 disabled:opacity-30 transition-all uppercase tracking-tighter">Prev</button>
+                        <button id="btn-next" onclick="moveSim(1)" class="theme-btn-primary flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black shadow-lg shadow-indigo-100 transition-all active:scale-95 uppercase tracking-tighter">Next Step</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT: Cumulative Graph (30%) -->
+            <section class="theme-panel-white bg-white rounded-[2.5rem] shadow-md border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="bg-rose-50 p-4 border-b border-rose-100 text-center shrink-0">
+                    <span class="text-rose-900 font-black text-xs uppercase tracking-widest">Cumulative Enthalpy</span>
+                </div>
+                
+                <div class="flex-1 p-8 flex items-center justify-center bg-slate-50/20 relative">
+                    <svg width="100%" height="100%" viewBox="0 0 200 450" preserveAspectRatio="xMidYMid meet" style="overflow: visible;">
+                        <!-- Y-Axis -->
+                        <line x1="50" y1="20" x2="50" y2="430" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+                        <text x="45" y="15" text-anchor="end" font-size="12" font-weight="bold" fill="#64748b" class="math-text">H (kJ)</text>
+                        
+                        <!-- 0 baseline -->
+                        <line x1="40" y1="180" x2="180" y2="180" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,4"/>
+                        <text x="35" y="185" text-anchor="end" font-size="16" font-weight="900" fill="#94a3b8">0</text>
+
+                        <!-- Cumulative Bar (Bug fixed) -->
+                        <rect id="dynamic-bar" class="bar-chart" x="85" y="180" width="70" height="0" rx="8" fill="#94a3b8"/>
+                        
+                        <!-- Value Label -->
+                        <text id="dynamic-val" class="bar-label math-text" x="120" y="170" text-anchor="middle" font-size="34" fill="#334155">0 kJ</text>
+                    </svg>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Data Definitions (0 -> 75 -> 75 -> -319 -> -891)
+        const stepSpecs = [
+            { total: 0, msg: "준비 단계: 반응물 분자 상태 (CH₄, 2O₂)" },
+            { total: 75, msg: "(a) 단계 진행: 메테인 분해 흡열 (+75 kJ)" },
+            { total: 75, msg: "(b) 단계 진행: 산소 분자 이동 (변화 0 kJ)" },
+            { total: -319, msg: "(c) 단계 진행: 이산화 탄소 생성 발열 (-394 kJ)" },
+            { total: -891, msg: "(d) 단계 진행: 물 분자 생성 발열 (-572 kJ)" }
+        ];
+
+        // Optimized Coordinates: Molecules are vertically centered and strictly inside boxes
+        const atomMap = {
+            c1: { p: [[125, 130], [425, 130], [425, 130], [725, 140], [725, 140]], r: 28 },
+            h1: { p: [[125, 90], [410, 220], [410, 220], [410, 220], [705, 240]], r: 12 },
+            h2: { p: [[160, 130], [440, 220], [440, 220], [440, 220], [745, 240]], r: 12 },
+            h3: { p: [[125, 170], [410, 250], [410, 250], [410, 250], [705, 340]], r: 12 },
+            h4: { p: [[90,  130], [440, 250], [440, 250], [440, 250], [745, 340]], r: 12 },
+            o1: { p: [[105, 310], [105, 310], [405, 330], [685, 140], [685, 140]], r: 22 },
+            o2: { p: [[145, 310], [145, 310], [445, 330], [765, 140], [765, 140]], r: 22 },
+            o3: { p: [[105, 355], [105, 355], [405, 375], [405, 375], [725, 220]], r: 22 },
+            o4: { p: [[145, 355], [145, 355], [445, 375], [445, 375], [725, 320]], r: 22 }
+        };
+
+        let currentStep = 0;
+
+        function render() {
+            // UI Update
+            document.getElementById('step-badge').innerText = `STEP ${currentStep} / 4`;
+            document.getElementById('status-text').innerText = stepSpecs[currentStep].msg;
+
+            // Atom Movement (No duplication, physical move)
+            for (const [id, cfg] of Object.entries(atomMap)) {
+                const el = document.getElementById(`atom-${id}`);
+                const pos = cfg.p[currentStep];
+                el.setAttribute('cx', pos[0]);
+                el.setAttribute('cy', pos[1]);
+                el.setAttribute('r', cfg.r);
+            }
+
+            // Arrow Visibility
+            document.getElementById('path-a').classList.toggle('active', currentStep >= 1);
+            document.getElementById('path-b').classList.toggle('active', currentStep >= 2);
+            document.getElementById('path-c').classList.toggle('active', currentStep >= 3);
+            document.getElementById('path-d').classList.toggle('active', currentStep >= 4);
+
+            // Ghost Shadows Management (Opacity 0.1)
+            document.querySelectorAll('.ghost-0').forEach(g => g.classList.toggle('active', currentStep > 0));
+            document.querySelectorAll('.ghost-2').forEach(g => g.classList.toggle('active', currentStep > 2));
+
+            // Cumulative Enthalpy Display
+            const val = stepSpecs[currentStep].total;
+            const bar = document.getElementById('dynamic-bar');
+            const label = document.getElementById('dynamic-val');
+            const zeroY = 180;
+            const scale = 0.3; 
+            const height = Math.abs(val) * scale;
+
+            if (val >= 0) {
+                bar.setAttribute('y', zeroY - height);
+                bar.setAttribute('height', height);
+                bar.setAttribute('fill', '#3b82f6');
+                label.setAttribute('y', zeroY - height - 15);
+                label.style.fill = (val === 0 && currentStep === 0) ? '#94a3b8' : '#2563eb';
+            } else {
+                bar.setAttribute('y', zeroY);
+                bar.setAttribute('height', height);
+                bar.setAttribute('fill', '#f43f5e');
+                label.setAttribute('y', zeroY + height + 45);
+                label.style.fill = '#e11d48';
+            }
+            label.textContent = (val > 0 ? '+' : '') + val + " kJ";
+
+            // Button Control
+            document.getElementById('btn-prev').disabled = currentStep === 0;
+            document.getElementById('btn-next').disabled = currentStep === 4;
+            document.getElementById('btn-next').innerText = currentStep === 4 ? "완료" : "다음 단계";
+        }
+
+        // Initialize Ghosts at start and elemental positions
+        function createGhosts() {
+            let html = "";
+            for (const [id, cfg] of Object.entries(atomMap)) {
+                let fill = id.startsWith('c') ? 'url(#gradC)' : (id.startsWith('o') ? 'url(#gradO)' : 'url(#gradH)');
+                // Traces left in Reactant area (Step 0)
+                html += `<circle cx="${cfg.p[0][0]}" cy="${cfg.p[0][1]}" r="${cfg.r}" fill="${fill}" class="ghost-trace ghost-0" />`;
+                // Traces left in Element area (Step 2/3)
+                html += `<circle cx="${cfg.p[2][0]}" cy="${cfg.p[2][1]}" r="${cfg.r}" fill="${fill}" class="ghost-trace ghost-2" />`;
+            }
+            document.getElementById('ghost-layer').innerHTML = html;
+        }
+
+        function moveSim(dir) {
+            currentStep = Math.max(0, Math.min(4, currentStep + dir));
+            render();
+        }
+
+        function changeFontSize(d) {
+            const el = document.documentElement;
+            const cur = parseFloat(window.getComputedStyle(el).fontSize);
+            el.style.fontSize = (cur + d) + 'px';
+        }
+
+        window.onload = () => { createGhosts(); render(); };
+    </script>
+</body>
+</html>
