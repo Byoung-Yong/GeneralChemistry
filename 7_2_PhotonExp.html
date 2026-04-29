@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>광전 효과: 입자적 상호작용 (Photoelectric Effect)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 폰트 패밀리는 영문명만 사용 (Segoe UI, Roboto 등) */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .highlight-purple { color: #a855f7; font-weight: bold; }
+        .highlight-blue { color: #3b82f6; font-weight: bold; }
+        .highlight-yellow { color: #fbbf24; font-weight: bold; }
+
+        /* 금속판 스타일 */
+        .metal-plate {
+            width: 300px;
+            height: 60px;
+            background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
+            border-radius: 8px;
+            border: 2px solid #64748b;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative;
+            transform: perspective(600px) rotateX(20deg);
+            z-index: 5;
+        }
+
+        /* 광자(구 형태) 스타일 */
+        .photon-sphere {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 0 15px currentColor;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        /* 전자 스타일 */
+        .electron {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #fbbf24;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: bold;
+            color: #000;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* 슬라이더 스타일 */
+        input[type=range].slider-nu { accent-color: #a855f7; }
+        input[type=range].slider-n { accent-color: #22c55e; }
+        input[type=range].slider-phi { accent-color: #3b82f6; }
+
+        /* 단일 에너지 바 애니메이션 */
+        .energy-bar-single { 
+            transition: height 0.3s ease-out, background-color 0.3s; 
+            width: 64px;
+        }
+        
+        /* 겹침 방지를 위해 라벨 위치 및 스타일 최적화 */
+        .threshold-line {
+            position: absolute;
+            width: 150%;
+            left: -25%;
+            border-top: 2px dashed #3b82f6;
+            z-index: 30;
+            pointer-events: none;
+            transition: bottom 0.3s ease;
+        }
+
+        /* 문턱 에너지 라벨: 오른쪽 정렬 및 배경 처리 */
+        .label-phi {
+            position: absolute;
+            right: 0;
+            top: -26px;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: bold;
+            color: #3b82f6;
+            background-color: rgba(15, 23, 42, 0.85);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            z-index: 40;
+        }
+
+        /* 광자 에너지 라벨: 상단 중앙 배치 및 배경 처리 */
+        .label-hv {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: -26px;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: bold;
+            color: #a855f7;
+            background-color: rgba(15, 23, 42, 0.85);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            z-index: 35;
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-6 flex flex-col items-center">
+
+    <div class="theme-shell max-w-7xl w-full flex flex-col gap-6 p-6">
+        
+        <header class="theme-hero text-center border-b border-slate-700 pb-4 rounded-3xl">
+            <h1 class="text-3xl font-bold mb-2 text-white">광전 효과: 빛의 입자성 분석</h1>
+            <p class="text-slate-400">광전 효과는 <b>광자 1개(<i>h&nu;</i>)</b>와 <b>전자 1개</b>의 1:1 충돌 현상입니다.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 왼쪽: 조작 패널 -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                <div class="theme-panel bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg space-y-6">
+                    
+                    <!-- 1. 진동수 조절 -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="font-semibold text-purple-400">광자의 진동수 (&nu;)</label>
+                            <span id="nu-val" class="text-purple-400 font-mono font-bold text-lg">500 THz</span>
+                        </div>
+                        <input type="range" id="slider-nu" min="300" max="900" value="500" class="slider-nu w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                            <span>낮음 (적색)</span>
+                            <span>높음 (보라색)</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. 광자의 개수(세기) 조절 -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="font-semibold text-green-500">광자의 개수 (n)</label>
+                            <span id="n-val" class="text-green-500 font-mono font-bold text-lg">n = 5</span>
+                        </div>
+                        <input type="range" id="slider-n" min="1" max="15" value="5" step="1" class="slider-n w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <p class="text-[11px] text-slate-500 mt-2">입사하는 알갱이의 숫자만 결정하며, 개별 에너지는 변하지 않습니다.</p>
+                    </div>
+
+                    <!-- 3. 문턱 에너지 조절 -->
+                    <div class="pt-4 border-t border-slate-700">
+                        <div class="flex justify-between mb-2">
+                            <label class="font-semibold text-blue-400">금속의 문턱 에너지 (&Phi;)</label>
+                            <span id="phi-val" class="text-blue-400 font-mono font-bold text-lg">2.25 eV</span>
+                        </div>
+                        <input type="range" id="slider-phi" min="1.0" max="4.0" step="0.05" value="2.25" class="slider-phi w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- 물리 원리 체크 -->
+                <div class="theme-panel-white bg-slate-900 p-5 rounded-xl border border-slate-700 text-center shadow-inner">
+                    <p class="text-xs font-bold mb-3 text-slate-400 uppercase tracking-widest">실시간 물리 로직 분석</p>
+                    <p id="condition-check" class="text-lg font-mono mb-2">-</p>
+                    <div id="result-status" class="py-2 px-4 rounded text-sm font-bold">-</div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 시각화 -->
+            <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- 실험실 영역 -->
+                <div class="theme-panel bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[480px]">
+                    <h3 class="font-bold text-blue-400 mb-4">실험 시각화 (Particle View)</h3>
+                    <div id="experiment-area" class="flex-1 relative flex items-end justify-center pb-20 overflow-hidden bg-slate-900 rounded-lg border border-slate-700">
+                        <div class="metal-plate"></div>
+                        <div id="particle-container" class="absolute inset-0 pointer-events-none"></div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-4 text-center">광자(<i>h&nu;</i>)가 금속 표면의 전자와 1:1로 충돌합니다.</p>
+                </div>
+
+                <!-- 에너지 비교 분석 영역 (수정됨) -->
+                <div class="theme-panel bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[480px]">
+                    <h3 class="font-bold text-purple-400 mb-1">에너지 1:1 비교</h3>
+                    <p class="text-[11px] text-slate-500 mb-8">전자가 나오기 위해서는 <b>광자 1개</b>의 에너지가 문턱을 넘어야 합니다.</p>
+                    
+                    <div class="flex-1 flex items-end justify-center bg-slate-900 rounded-lg border border-slate-700 p-8 relative overflow-hidden">
+                        <!-- Y축 -->
+                        <div class="absolute left-4 bottom-8 top-8 w-10 border-r border-slate-700 flex flex-col-reverse justify-between pb-6 text-[10px] text-slate-500">
+                            <span>0</span>
+                            <span class="rotate-90 origin-left translate-x-2 -translate-y-8 whitespace-nowrap">Energy (eV)</span>
+                        </div>
+
+                        <!-- 에너지 비교 바 영역 -->
+                        <div class="relative w-full h-full flex items-end justify-center max-w-[160px]">
+                            <!-- 문턱 에너지 점선 -->
+                            <div id="phi-line" class="threshold-line">
+                                <span class="label-phi">&Phi; (문턱 에너지)</span>
+                            </div>
+
+                            <!-- 광자 1개의 에너지 바 -->
+                            <div id="hv-bar" class="energy-bar-single rounded-t shadow-lg border border-white/50 relative">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="font-bold text-white text-lg"><i>h&nu;</i></span>
+                                </div>
+                                <!-- 라벨 - 중앙 상단 배치 -->
+                                <span class="label-hv">광자 1개 에너지</span>
+                            </div>
+                        </div>
+
+                        <!-- 정보창 - 우측 상단 고정, 레이어 최상단 배치 -->
+                        <div class="absolute right-4 top-4 bg-slate-800/95 p-3 rounded border border-slate-600 text-right space-y-1 shadow-2xl z-50">
+                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">개별 수치 분석</p>
+                            <p class="font-mono text-purple-400 text-sm"><i>h&nu;</i> = <span id="data-hv">2.07</span> eV</p>
+                            <p class="font-mono text-blue-400 text-sm border-t border-slate-700 pt-1">&Phi; = <span id="data-phi">2.25</span> eV</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-3 bg-slate-900/50 rounded text-[11px] text-slate-400 leading-relaxed italic">
+                        * <i>n</i>(광자의 개수)은 위 비교에 영향을 주지 않습니다. 개수가 아무리 많아도 광자 1개의 에너지가 문턱보다 낮으면 전자는 나오지 않습니다.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const h_Planck_eV = 4.135e-3; 
+        const sliderNu = document.getElementById('slider-nu');
+        const sliderN = document.getElementById('slider-n');
+        const sliderPhi = document.getElementById('slider-phi');
+        
+        const textNu = document.getElementById('nu-val');
+        const textN = document.getElementById('n-val');
+        const textPhi = document.getElementById('phi-val');
+        
+        const dataHv = document.getElementById('data-hv');
+        const dataPhi = document.getElementById('data-phi');
+        const conditionCheck = document.getElementById('condition-check');
+        const resultStatus = document.getElementById('result-status');
+        
+        const particleContainer = document.getElementById('particle-container');
+        const hvBar = document.getElementById('hv-bar');
+        const phiLine = document.getElementById('phi-line');
+
+        let lastSpawn = 0;
+
+        function nuToColor(nu) {
+            const minNu = 300; const maxNu = 900;
+            const hue = (nu - minNu) * (280 / (maxNu - minNu));
+            return `hsl(${hue}, 100%, 60%)`;
+        }
+
+        function spawnPhoton() {
+            const nu = parseFloat(sliderNu.value);
+            const phi = parseFloat(sliderPhi.value);
+            const hv = nu * h_Planck_eV;
+            const color = nuToColor(nu);
+
+            const photon = document.createElement('div');
+            photon.className = 'photon-sphere';
+            photon.style.backgroundColor = color;
+            photon.style.color = color;
+            
+            const startX = 10 + Math.random() * 80;
+            photon.style.left = startX + '%';
+            photon.style.top = '-20px';
+            particleContainer.appendChild(photon);
+
+            const duration = 1000;
+            const start = performance.now();
+            function move(now) {
+                const elapsed = now - start;
+                const progress = elapsed / duration;
+                if (progress < 1) {
+                    photon.style.top = (progress * 82) + '%';
+                    requestAnimationFrame(move);
+                } else {
+                    if (hv >= phi) ejectElectron(startX);
+                    photon.remove();
+                }
+            }
+            requestAnimationFrame(move);
+        }
+
+        function ejectElectron(x) {
+            const nu = parseFloat(sliderNu.value);
+            const phi = parseFloat(sliderPhi.value);
+            const hv = nu * h_Planck_eV;
+            const electron = document.createElement('div');
+            electron.className = 'electron';
+            electron.innerText = '-';
+            electron.style.left = x + '%';
+            electron.style.bottom = '22%';
+            particleContainer.appendChild(electron);
+            const speed = 2 + Math.sqrt(hv - phi) * 5;
+            let px = 0; let py = 0;
+            function moveE() {
+                py += speed; px += (Math.random()-0.5)*2;
+                electron.style.transform = `translate(${px}px, ${-py}px)`;
+                if (py < 600) requestAnimationFrame(moveE);
+                else electron.remove();
+            }
+            requestAnimationFrame(moveE);
+        }
+
+        function update() {
+            const nu = parseFloat(sliderNu.value);
+            const n = parseInt(sliderN.value);
+            const phi = parseFloat(sliderPhi.value);
+            const hv = nu * h_Planck_eV;
+            const color = nuToColor(nu);
+
+            textNu.innerText = `${nu} THz`;
+            textNu.style.color = color;
+            textN.innerText = `n = ${n}`;
+            textPhi.innerText = `${phi.toFixed(2)} eV`;
+            dataHv.innerText = hv.toFixed(2);
+            dataPhi.innerText = phi.toFixed(2);
+
+            const canEject = hv >= phi;
+            conditionCheck.innerHTML = `<span class="highlight-purple"><i>h&nu;</i> (${hv.toFixed(2)})</span> ${canEject ? '&ge;' : '<'} <span class="highlight-blue">&Phi; (${phi.toFixed(2)})</span>`;
+            
+            if (canEject) {
+                resultStatus.innerText = "조건 만족: 전자 방출";
+                resultStatus.className = "py-2 px-4 rounded text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/50";
+            } else {
+                resultStatus.innerText = "에너지 부족: 변화 없음";
+                resultStatus.className = "py-2 px-4 rounded text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/50";
+            }
+
+            // 그래프 업데이트 (Max 5eV 기준)
+            const maxDisp = 5.0;
+            hvBar.style.height = `${(hv / maxDisp) * 100}%`;
+            hvBar.style.backgroundColor = color;
+            phiLine.style.bottom = `${(phi / maxDisp) * 100}%`;
+        }
+
+        function loop(time) {
+            const n = parseInt(sliderN.value);
+            if (time - lastSpawn > (1500 / n)) {
+                spawnPhoton();
+                lastSpawn = time;
+            }
+            requestAnimationFrame(loop);
+        }
+
+        sliderNu.addEventListener('input', update);
+        sliderN.addEventListener('input', update);
+        sliderPhi.addEventListener('input', update);
+        update();
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>

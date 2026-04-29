@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>흑체 복사와 에너지 양자화</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 폰트는 영문명만 사용 */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .highlight-text { color: #a855f7; font-weight: bold; } /* purple-500 */
+        .highlight-red { color: #ef4444; font-weight: bold; }
+
+        /* 흑체 모형 CSS */
+        .blackbody-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #334155 0%, #0f172a 100%);
+            border-radius: 50%;
+            border: 4px solid #475569;
+            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .blackbody-hole {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+
+        /* 슬라이더 커스텀 */
+        input[type=range].slider-nu { accent-color: #a855f7; }
+        input[type=range].slider-n { accent-color: #22c55e; }
+
+        /* 양자(Quantum) 애니메이션 효과 */
+        .quantum-box {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: float 3s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 12px currentColor;
+            border: 2px solid white;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quantum-box:nth-child(even) { animation-delay: 1.5s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .wave-path {
+            stroke-dasharray: 100;
+            animation: dash 2s linear infinite;
+        }
+
+        @keyframes dash { to { stroke-dashoffset: -200; } }
+
+        /* 계단 애니메이션 용 */
+        .energy-level { transition: height 0.4s ease-out, background-color 0.3s; }
+        .ball { transition: bottom 0.4s ease-out; }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-8 flex flex-col items-center justify-center">
+
+    <div class="theme-shell max-w-5xl w-full flex flex-col gap-6 p-6">
+        
+        <header class="theme-hero text-center mb-4 rounded-3xl">
+            <h1 class="text-3xl font-bold mb-2 text-white">플랑크의 에너지 양자화</h1>
+            <p class="text-slate-400">흑체에서 에너지가 불연속적인 '꾸러미' 형태로 방출되는 현상</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- 왼쪽 패널: 이론 및 조작부 -->
+            <div class="flex flex-col gap-6">
+                <!-- 1. 이론 설명 (슬라이드 내용 반영) -->
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+                    <div class="bg-slate-900 p-5 rounded-lg border border-slate-700 text-[15px] leading-relaxed space-y-3">
+                        <p>▪ Planck: <span class="highlight-text">물질은 h&nu;의 정수배에 해당되는 양의 에너지만 흡수하거나 방출</span>한다.</p>
+                        <p class="pl-4 text-slate-300">(1900년) 어떤 계에서 에너지 변화 &rarr; <span class="highlight-red text-lg">&Delta;E = nh&nu;</span></p>
+                        <ul class="pl-10 text-slate-400 list-none space-y-1 text-sm">
+                            <li><i>n</i>: 정수 (1, 2, 3, ...)</li>
+                            <li><i>h</i>: planck 상수 (6.626 &times; 10<sup>-34</sup> J&middot;s)</li>
+                            <li><i>&nu;</i>: 흡수/방출되는 전자기 복사선의 진동수</li>
+                        </ul>
+                        <p class="pt-2">▪ <span class="highlight-text">에너지는 양자화되어 (quantized) 있다.</span></p>
+                        <p class="pl-4 text-slate-300"><i>h&nu;</i>의 크기를 갖는 작은 에너지의 "꾸러미" &rarr; <span class="highlight-red">양자</span> (quantum)</p>
+                        <p class="pt-2">▪ <span class="highlight-text">에너지는 양자의 정수배로 만 전달될 수 있다.</span></p>
+                        <p class="pl-4 text-slate-300">&rarr; 에너지도 마치 입자와 같은 성질을 갖는다고 볼 수 있다.</p>
+                    </div>
+                </div>
+
+                <!-- 2. 컨트롤러 -->
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-6">
+                    <!-- 진동수(v) 슬라이더 -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="font-semibold text-slate-200">복사선의 진동수 (&nu;)</label>
+                            <span id="nu-val" class="text-purple-400 font-mono font-bold">400 THz</span>
+                        </div>
+                        <input type="range" id="slider-nu" min="400" max="750" value="400" class="slider-nu w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                        <p class="text-xs text-slate-400 mt-2">진동수가 클수록 양자 1개($h\nu$)의 크기(에너지)가 커집니다.</p>
+                    </div>
+
+                    <!-- 정수(n) 슬라이더 -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="font-semibold text-slate-200">양자의 수 (n 정수배)</label>
+                            <span id="n-val" class="text-green-400 font-mono font-bold">n = 1</span>
+                        </div>
+                        <input type="range" id="slider-n" min="1" max="10" value="1" step="1" class="slider-n w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                        <p class="text-xs text-slate-400 mt-2">에너지는 이 양자의 개수만큼만 정수배로 늘어납니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽 패널: 시각화 -->
+            <div class="flex flex-col gap-6">
+                <!-- 3. 양자 꾸러미 방출 시각화 -->
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[320px]">
+                    <h3 class="font-bold text-blue-400 text-lg mb-2">에너지 방출 모형</h3>
+                    <p class="text-sm text-slate-400 mb-4">흑체에서 $h\nu$ 크기의 에너지 꾸러미가 방출됩니다.</p>
+                    
+                    <div class="flex-1 flex items-center gap-6 bg-slate-900 rounded-lg p-4 border border-slate-700 overflow-hidden">
+                        
+                        <!-- 흑체 -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs text-slate-500 mb-2 font-bold">흑체 (Blackbody)</span>
+                            <div class="blackbody-container">
+                                <div id="blackbody-hole" class="blackbody-hole"></div>
+                            </div>
+                        </div>
+
+                        <!-- 방출되는 양자들 -->
+                        <div id="quantum-container" class="flex-1 flex flex-wrap content-center justify-start gap-4 h-full pl-6 border-l border-slate-700 overflow-y-auto">
+                            <!-- 양자 박스들이 자바스크립트에 의해 추가됨 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 계단식 에너지 준위 -->
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex-1 flex flex-col min-h-[320px]">
+                    <h3 class="font-bold text-blue-400 text-lg mb-2">불연속적 에너지 준위 (양자화)</h3>
+                    <p class="text-sm text-slate-400 mb-4">총 에너지는 연속적인 경사로가 아닌, <b>계단($nh\nu$)</b> 형태로만 존재합니다.</p>
+                    
+                    <div class="flex-1 flex items-end justify-center bg-slate-900 rounded-lg border border-slate-700 p-4 relative overflow-hidden">
+                        <!-- Y축 눈금 -->
+                        <div class="absolute left-4 bottom-4 top-4 w-12 border-r border-slate-600 flex flex-col-reverse justify-between pb-6 text-xs text-slate-500">
+                            <span>0</span>
+                            <span class="rotate-90 origin-left translate-x-3 -translate-y-6 whitespace-nowrap">총 에너지 (&Delta;E)</span>
+                        </div>
+
+                        <div class="relative w-32 ml-12 h-full flex items-end">
+                            <div id="energy-bar" class="energy-level w-full bg-blue-500 rounded-t-sm opacity-80" style="height: 10%;"></div>
+                            <div id="energy-ball" class="ball absolute w-6 h-6 bg-yellow-400 rounded-full shadow-[0_0_10px_yellow] left-1/2 -translate-x-1/2" style="bottom: 10%;"></div>
+                            <div id="stairs-container" class="absolute inset-0 w-full h-full pointer-events-none"></div>
+                        </div>
+
+                        <!-- 계산 결과값 -->
+                        <div class="absolute right-4 top-4 bg-slate-800/80 p-3 rounded border border-slate-600 text-right">
+                            <p class="text-xs text-slate-400 mb-1">현재 에너지 상태</p>
+                            <p class="font-mono text-lg">&Delta;E = <span class="text-green-400" id="disp-n">1</span> &times; <span class="text-purple-400"><i>h&nu;</i></span></p>
+                            <p id="calc-joules" class="text-sm text-yellow-400 font-mono mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소
+        const sliderNu = document.getElementById('slider-nu');
+        const sliderN = document.getElementById('slider-n');
+        
+        const textNu = document.getElementById('nu-val');
+        const textN = document.getElementById('n-val');
+        const dispN = document.getElementById('disp-n');
+        const calcJoules = document.getElementById('calc-joules');
+        
+        const blackbodyHole = document.getElementById('blackbody-hole');
+        const quantumContainer = document.getElementById('quantum-container');
+        
+        const energyBar = document.getElementById('energy-bar');
+        const energyBall = document.getElementById('energy-ball');
+        const stairsContainer = document.getElementById('stairs-container');
+
+        // 상수
+        const h_Planck = 6.626; // x 10^-34
+
+        // 진동수(THz) -> RGB 색상 (가시광선 매핑)
+        function frequencyToColor(nu) {
+            const minNu = 400; const maxNu = 750;
+            const minHue = 0; const maxHue = 280; // Red to Purple
+            let hue = minHue + (nu - minNu) * (maxHue - minHue) / (maxNu - minNu);
+            return `hsl(${hue}, 100%, 60%)`;
+        }
+
+        // 파동 SVG 생성
+        function createWaveSvg(nu, color) {
+            const freqMult = 1 + ((nu - 400) / 350) * 3; 
+            return `
+            <svg width="100%" height="100%" viewBox="0 0 100 50" preserveAspectRatio="none">
+                <path class="wave-path" d="M 0 25 Q ${12.5/freqMult} 0, ${25/freqMult} 25 T ${50/freqMult} 25 T ${75/freqMult} 25 T ${100/freqMult} 25 T ${125/freqMult} 25 T ${150/freqMult} 25" fill="none" stroke="${color}" stroke-width="3"/>
+            </svg>`;
+        }
+
+        function updateSimulation() {
+            const nu = parseFloat(sliderNu.value); // THz
+            const n = parseInt(sliderN.value);
+            const color = frequencyToColor(nu);
+
+            // 1. 텍스트 업데이트
+            textNu.innerText = `${nu} THz`;
+            textN.innerText = `n = ${n}`;
+            dispN.innerText = n;
+            
+            // 에너지 계산: E = n * h * v
+            const energyRaw = n * h_Planck * nu / 1000;
+            calcJoules.innerHTML = `= ${energyRaw.toFixed(2)} &times; 10<sup>-19</sup> J`;
+
+            // 2. 흑체 모형 업데이트 (n이 클수록 더 밝게 빛남)
+            blackbodyHole.style.backgroundColor = color;
+            blackbodyHole.style.boxShadow = `0 0 ${10 + n*5}px ${2 + n*2}px ${color}`;
+
+            // 3. 양자 꾸러미(Boxes) 렌더링
+            quantumContainer.innerHTML = '';
+            // 진동수가 클수록 상자의 세로 길이를 늘려 에너지가 큼을 표현
+            const boxHeight = 40 + ((nu - 400) / 350) * 40; 
+            
+            for(let i=0; i<n; i++) {
+                const box = document.createElement('div');
+                box.className = 'quantum-box';
+                box.style.color = color;
+                box.style.width = '60px';
+                box.style.height = `${boxHeight}px`;
+                box.innerHTML = createWaveSvg(nu, color);
+                
+                const label = document.createElement('div');
+                label.className = 'absolute text-xs font-bold bg-slate-900/80 px-1 rounded text-white';
+                label.innerHTML = '<i>h&nu;</i>';
+                box.appendChild(label);
+                
+                quantumContainer.appendChild(box);
+            }
+
+            // 4. 계단식 에너지 준위 렌더링
+            const maxPossibleEnergy = 10 * 750; 
+            const currentEnergy = n * nu;
+            const heightPercent = (currentEnergy / maxPossibleEnergy) * 90 + 5;
+            
+            energyBar.style.height = `${heightPercent}%`;
+            energyBar.style.backgroundColor = color;
+            energyBall.style.bottom = `calc(${heightPercent}% - 12px)`;
+            
+            // 계단 선 그리기
+            stairsContainer.innerHTML = '';
+            const stepSizePercent = (nu / maxPossibleEnergy) * 90;
+            for(let i=1; i<=10; i++) {
+                const stepHeight = stepSizePercent * i + 5;
+                if(stepHeight > 100) break;
+                
+                const line = document.createElement('div');
+                line.className = 'absolute w-full border-b border-dashed border-slate-600/50';
+                line.style.bottom = `${stepHeight}%`;
+                
+                if (i === n) {
+                    line.classList.remove('border-slate-600/50', 'border-dashed');
+                    line.classList.add('border-white', 'border-solid', 'shadow-[0_0_5px_white]');
+                }
+                stairsContainer.appendChild(line);
+            }
+        }
+
+        // 이벤트 리스너
+        sliderNu.addEventListener('input', updateSimulation);
+        sliderN.addEventListener('input', updateSimulation);
+
+        // 초기화
+        updateSimulation();
+
+    </script>
+</body>
+</html>

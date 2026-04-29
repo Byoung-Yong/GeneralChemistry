@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수소 원자의 s 오비탈 시각화</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 폰트는 요청사항에 따라 영문 이름만 사용 */
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        /* 3D 구 모델 스타일 */
+        .sphere-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 250px;
+        }
+
+        .sphere {
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #7dd3fc, #0284c7, #082f49);
+            box-shadow: -10px -10px 30px rgba(0, 0, 0, 0.7) inset, 
+                        0 10px 20px rgba(0, 0, 0, 0.4);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 오비탈 별 3D 크기 */
+        .sphere-1s { width: 60px; height: 60px; }
+        .sphere-2s { width: 130px; height: 130px; }
+        .sphere-3s { width: 220px; height: 220px; }
+
+        .orbital-btn {
+            transition: all 0.2s;
+        }
+        .orbital-btn.active {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+            border-color: #0ea5e9;
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="max-w-6xl w-full">
+        <!-- 헤더 -->
+        <header class="theme-hero text-center mb-10 rounded-3xl w-full">
+            <h1 class="text-3xl md:text-4xl font-bold mb-3 text-sky-400" style="text-shadow: 0 0 15px rgba(56, 189, 248, 0.4);">
+                수소 원자의 s 오비탈
+            </h1>
+            <p class="text-slate-400 text-sm md:text-base max-w-3xl mx-auto leading-relaxed">
+                주양자수(<span class="math">n</span>)가 커질수록 오비탈의 크기가 커지며, 
+                전자가 발견될 확률이 0인 <strong>마디(Node)</strong>의 수가 증가합니다. 
+                아래 버튼을 눌러 각 표현 방식을 비교해 보세요.
+            </p>
+        </header>
+
+        <!-- 컨트롤 패널 -->
+        <div class="flex justify-center gap-4 mb-10">
+                <button onclick="setOrbital(1)" id="btn-1s" class="theme-btn-secondary orbital-btn active px-6 py-2 rounded-full border border-slate-600 text-slate-300 font-semibold hover:bg-slate-800">
+                1s 오비탈
+            </button>
+                <button onclick="setOrbital(2)" id="btn-2s" class="theme-btn-secondary orbital-btn px-6 py-2 rounded-full border border-slate-600 text-slate-300 font-semibold hover:bg-slate-800">
+                2s 오비탈
+            </button>
+                <button onclick="setOrbital(3)" id="btn-3s" class="theme-btn-secondary orbital-btn px-6 py-2 rounded-full border border-slate-600 text-slate-300 font-semibold hover:bg-slate-800">
+                3s 오비탈
+            </button>
+        </div>
+
+        <!-- 시각화 영역 (4열 그리드) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            
+            <!-- 1. 확률 밀도 함수 -->
+            <div class="theme-panel bg-slate-800/50 p-5 rounded-2xl border border-slate-700 relative">
+                <div class="absolute top-4 left-5 bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded">a</div>
+                <h2 class="text-center text-slate-300 font-medium mb-4 mt-2">
+                    확률 밀도 함수 <span class="math">|ψ|²</span>
+                </h2>
+                <div class="aspect-square w-full relative">
+                    <canvas id="graphCanvas" class="w-full h-full rounded-lg bg-slate-900/80"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 text-center mt-3">거리(<span class="math">r</span>)에 따른 전자의 발견 확률. 마디에서는 확률이 0이 됩니다.</p>
+            </div>
+
+            <!-- 2. 방사방향 확률 -->
+            <div class="theme-panel bg-slate-800/50 p-5 rounded-2xl border border-slate-700 relative">
+                <div class="absolute top-4 left-5 bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded">b</div>
+                <h2 class="text-center text-slate-300 font-medium mb-4 mt-2">
+                    방사방향 확률 <span class="math">4πr²|ψ|²</span>
+                </h2>
+                <div class="aspect-square w-full relative">
+                    <canvas id="radialCanvas" class="w-full h-full rounded-lg bg-slate-900/80"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 text-center mt-3">구껍질 부피 효과를 포함한 거리(<span class="math">r</span>)별 발견 확률입니다.</p>
+            </div>
+
+            <!-- 3. 2D 전자 구름 모델 -->
+            <div class="theme-panel bg-slate-800/50 p-5 rounded-2xl border border-slate-700 relative">
+                <div class="absolute top-4 left-5 bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded">c</div>
+                <h2 class="text-center text-slate-300 font-medium mb-4 mt-2">
+                    2D 전자 구름 모델
+                </h2>
+                <div class="aspect-square w-full relative">
+                    <canvas id="cloudCanvas" class="w-full h-full rounded-lg bg-slate-900/80"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 text-center mt-3">확률 밀도를 점의 진하기로 표현한 단면. 하얀 틈이 마디입니다.</p>
+            </div>
+
+            <!-- 4. 3D 경계면 모델 -->
+            <div class="theme-panel bg-slate-800/50 p-5 rounded-2xl border border-slate-700 relative">
+                <div class="absolute top-4 left-5 bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded">d</div>
+                <h2 class="text-center text-slate-300 font-medium mb-4 mt-2">
+                    3D 경계면 모델
+                </h2>
+                <div class="aspect-square w-full bg-slate-900/80 rounded-lg relative overflow-hidden">
+                    <div class="sphere-container">
+                        <div id="sphereModel" class="sphere sphere-1s"></div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 text-center mt-3">전자가 발견될 확률이 90%인 공간을 둘러싼 경계면입니다.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 상수 및 상태
+        const PHYSICAL_R_MAX = 25; // x축 스케일 통일용 최대 거리
+        let currentN = 1;
+
+        // 노드(마디) 위치 (계산된 근사치)
+        const nodesInfo = {
+            1: [],
+            2: [4],
+            3: [2.5, 9]
+        };
+
+        // 방사 방향 파동 함수의 제곱값 계산 (시각적 최적화 함수)
+        function getPsiSquared(n, r) {
+            let val = 0;
+            if (n === 1) {
+                val = Math.exp(-r * 1.2);
+            } else if (n === 2) {
+                // 노드: r=4
+                val = (1 - r / 4) * Math.exp(-r / 4.5);
+            } else if (n === 3) {
+                // 노드: r=2.5, r=9
+                val = (1 - r / 2.5) * (1 - r / 9) * Math.exp(-r / 5);
+            }
+            return val * val; // 확률 밀도는 파동 함수의 제곱
+        }
+
+        // 캔버스 설정
+        function setupCanvas(id) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            return { canvas, ctx, w: rect.width, h: rect.height };
+        }
+
+        let graphCtx, radialCtx, cloudCtx;
+
+        function initCanvases() {
+            graphCtx = setupCanvas('graphCanvas');
+            radialCtx = setupCanvas('radialCanvas');
+            cloudCtx = setupCanvas('cloudCanvas');
+            drawAll();
+        }
+
+        // 창 크기 변경 대응
+        window.addEventListener('resize', initCanvases);
+
+        // 1. 확률 밀도 함수 그래프 그리기
+        function drawGraph() {
+            const { ctx, w, h } = graphCtx;
+            ctx.clearRect(0, 0, w, h);
+
+            const padding = 30;
+            const drawW = w - padding * 2;
+            const drawH = h - padding * 2;
+            const baseY = h - padding;
+
+            // X축 / Y축 그리기
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding / 2);
+            ctx.lineTo(padding, baseY);
+            ctx.lineTo(w - padding / 2, baseY);
+            ctx.stroke();
+
+            // 축 라벨
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = "italic 14px 'Times New Roman', serif";
+            ctx.fillText('r', w - padding + 5, baseY + 15);
+            ctx.fillText('ψ²', padding - 25, padding + 5);
+
+            // 그래프 곡선 그리기
+            ctx.strokeStyle = '#ef4444'; // 빨간색 (원본 이미지 느낌)
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+
+            for (let px = 0; px <= drawW; px++) {
+                let r = (px / drawW) * PHYSICAL_R_MAX;
+                let yVal = getPsiSquared(currentN, r);
+                
+                // 3s의 경우 작은 봉우리를 더 잘 보이게 y축을 약간 확대
+                let scaleY = (currentN === 3) ? 1.5 : 1; 
+                let py = baseY - (yVal * drawH * 0.85 * scaleY);
+                
+                // 그래프가 캔버스 위로 넘어가지 않도록 제한
+                py = Math.max(padding, py);
+
+                if (px === 0) ctx.moveTo(padding + px, py);
+                else ctx.lineTo(padding + px, py);
+            }
+            ctx.stroke();
+
+            // 마디(Node) 표시
+            const nodes = nodesInfo[currentN];
+            nodes.forEach(nodeR => {
+                let px = (nodeR / PHYSICAL_R_MAX) * drawW;
+                let py = baseY;
+
+                // 점 표시
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(padding + px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // '마디' 텍스트
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = "12px sans-serif";
+                ctx.textAlign = 'center';
+                ctx.fillText('마디', padding + px, py - 10);
+            });
+        }
+
+        // 2. 방사방향 확률 그래프 그리기
+        function drawRadialProbability() {
+            const { ctx, w, h } = radialCtx;
+            ctx.clearRect(0, 0, w, h);
+
+            const padding = 30;
+            const drawW = w - padding * 2;
+            const drawH = h - padding * 2;
+            const baseY = h - padding;
+
+            // X축 / Y축 그리기
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding / 2);
+            ctx.lineTo(padding, baseY);
+            ctx.lineTo(w - padding / 2, baseY);
+            ctx.stroke();
+
+            // 축 라벨
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = "italic 14px 'Times New Roman', serif";
+            ctx.fillText('r', w - padding + 5, baseY + 15);
+            ctx.fillText('4πr²ψ²', padding - 27, padding + 5);
+
+            // 정규화를 위한 최대값 계산
+            let maxVal = 0;
+            for (let px = 0; px <= drawW; px++) {
+                let r = (px / drawW) * PHYSICAL_R_MAX;
+                let radialProbability = r * r * getPsiSquared(currentN, r);
+                if (radialProbability > maxVal) maxVal = radialProbability;
+            }
+
+            // 그래프 곡선 그리기
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+
+            for (let px = 0; px <= drawW; px++) {
+                let r = (px / drawW) * PHYSICAL_R_MAX;
+                let radialProbability = r * r * getPsiSquared(currentN, r);
+                let yVal = maxVal > 0 ? radialProbability / maxVal : 0;
+                let py = baseY - (yVal * drawH * 0.85);
+                py = Math.max(padding, py);
+
+                if (px === 0) ctx.moveTo(padding + px, py);
+                else ctx.lineTo(padding + px, py);
+            }
+            ctx.stroke();
+
+            // 마디(Node) 표시
+            const nodes = nodesInfo[currentN];
+            nodes.forEach(nodeR => {
+                let px = (nodeR / PHYSICAL_R_MAX) * drawW;
+                let py = baseY;
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(padding + px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = "12px sans-serif";
+                ctx.textAlign = 'center';
+                ctx.fillText('마디', padding + px, py - 10);
+            });
+        }
+
+        // 3. 2D 전자 구름 그리기
+        function drawCloud() {
+            const { ctx, w, h } = cloudCtx;
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2;
+            const cy = h / 2;
+            // 구름이 캔버스에 꽉 차지 않고 여백을 두도록 스케일 조정
+            const maxRadius = Math.min(cx, cy) * 0.95; 
+
+            // 중심부에 방사형 그라데이션을 촘촘하게 생성
+            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
+            
+            // 100개의 구간으로 나누어 밀도 계산 (0 ~ PHYSICAL_R_MAX 범위)
+            for (let i = 0; i <= 100; i++) {
+                let percent = i / 100;
+                let r = percent * PHYSICAL_R_MAX;
+                let density = getPsiSquared(currentN, r);
+                
+                // 밝기 조절 (거리에 따라 어두워지는 보정 추가하여 입체감 향상)
+                let alpha = density * (currentN === 1 ? 1 : 2.5); // 2s, 3s는 꼬리가 옅으므로 증폭
+                if (alpha > 1) alpha = 1;
+
+                // 파란색 계열의 전자 구름
+                gradient.addColorStop(percent, `rgba(14, 165, 233, ${alpha})`);
+            }
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(cx, cy, maxRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2D 이미지의 '마디' 텍스트 선 긋기
+            const nodes = nodesInfo[currentN];
+            nodes.forEach((nodeR, index) => {
+                let nodePixelR = (nodeR / PHYSICAL_R_MAX) * maxRadius;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 1;
+                
+                // 마디를 나타내는 연한 점선 원
+                ctx.setLineDash([2, 4]);
+                ctx.beginPath();
+                ctx.arc(cx, cy, nodePixelR, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 텍스트 라벨 (오른쪽 위로 선 뽑기)
+                let angle = -Math.PI / 4 + (index * 0.2); // 노드가 여러개면 각도 약간 변경
+                let startX = cx + Math.cos(angle) * nodePixelR;
+                let startY = cy + Math.sin(angle) * nodePixelR;
+                let endX = startX + 30;
+                let endY = startY - 30;
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.lineTo(endX + 15, endY);
+                ctx.stroke();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = "12px sans-serif";
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('마디', endX + 20, endY);
+            });
+        }
+
+        // 4. 3D 구 모델 업데이트
+        function updateSphere() {
+            const sphere = document.getElementById('sphereModel');
+            sphere.className = `sphere sphere-${currentN}s`;
+        }
+
+        // 렌더링 통합 호출
+        function drawAll() {
+            if(!graphCtx || !radialCtx || !cloudCtx) return;
+            drawGraph();
+            drawRadialProbability();
+            drawCloud();
+            updateSphere();
+        }
+
+        // 사용자 버튼 클릭 이벤트
+        function setOrbital(n) {
+            currentN = n;
+            
+            // 버튼 스타일 업데이트
+            document.querySelectorAll('.orbital-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${n}s`).classList.add('active');
+
+            drawAll();
+        }
+
+        // 초기화 실행
+        window.onload = initCanvases;
+    </script>
+</body>
+</html>

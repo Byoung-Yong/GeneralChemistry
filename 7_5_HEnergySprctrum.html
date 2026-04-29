@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수소 원자 스펙트럼 분석 시각화</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 폰트는 영문명만 사용 */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0b1120;
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .canvas-panel {
+            background-color: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .energy-panel {
+            background-color: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .spectrum-bar-wrapper {
+            background-color: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .spectrum-bar {
+            background-color: #000;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
+        }
+
+        .spectrum-line {
+            position: absolute;
+            height: 2px;
+            width: 100%;
+            left: 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            box-shadow: 0 0 8px currentColor;
+        }
+        
+        .spectrum-line:hover, .spectrum-line.active {
+            height: 6px;
+            transform: translateY(-2px);
+            z-index: 10;
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .section-title {
+            color: #64748b;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .energy-title-main {
+            color: #10b981;
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .energy-title-sub {
+            color: #c084fc;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body class="theme-page">
+
+    <div class="theme-shell w-full max-w-[1500px] h-[700px] flex gap-4 p-8 m-6">
+        
+        <!-- 1. 왼쪽 패널: Ray Tracing Visualization -->
+        <div class="flex-1 flex flex-col min-w-[600px]">
+            <div class="h-[70px] flex justify-between items-end pb-3 px-2">
+                <span class="section-title">Ray Tracing Visualization</span>
+                <div class="flex gap-4 text-[11px] text-slate-400 font-bold">
+                    <span class="flex items-center gap-1"><div class="w-2 h-2 bg-white rounded-full"></div> 입사광</span>
+                    <span class="flex items-center gap-1"><div class="w-2 h-2 bg-purple-500 rounded-full"></div> 분산광</span>
+                </div>
+            </div>
+            
+            <div class="theme-canvas-dark canvas-panel flex-1 shadow-2xl">
+                <canvas id="rayCanvas" class="absolute inset-0 w-full h-full"></canvas>
+            </div>
+        </div>
+
+        <!-- 2. 중앙 패널: Vertical Spectrum Bar -->
+        <div class="w-16 flex flex-col">
+            <div class="h-[70px]"></div>
+            
+            <div class="theme-panel spectrum-bar-wrapper flex-1 shadow-2xl">
+                <div id="spectrum-bar" class="spectrum-bar"></div>
+            </div>
+        </div>
+
+        <!-- 3. 오른쪽 패널: Bohr Model Energy Levels -->
+        <div class="w-[450px] flex flex-col">
+            <div class="h-[70px] flex flex-col justify-end pb-3 pl-2">
+                <h1 class="energy-title-main leading-tight">에너지 준위 모델</h1>
+                <h2 class="energy-title-sub leading-tight mt-1">수소 원자 에너지 준위 (BOHR MODEL)</h2>
+            </div>
+            
+            <div class="theme-canvas-dark energy-panel flex-1 shadow-2xl">
+                <canvas id="energyCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let activeIdx = -1;
+        let time = 0;
+
+        const hLines = [
+            { idx: 0, nm: 656, color: '#ef4444', label: 'λ₁', n_from: 3 },
+            { idx: 1, nm: 486, color: '#06b6d4', label: 'λ₂', n_from: 4 },
+            { idx: 2, nm: 434, color: '#6366f1', label: 'λ₃', n_from: 5 },
+            { idx: 3, nm: 410, color: '#a855f7', label: 'λ₄', n_from: 6 }
+        ];
+
+        // 선 스펙트럼, 검출기, 광선 끝점을 모두 같은 에너지 축으로 정렬합니다.
+        // 화면 y축은 아래로 증가하므로, 에너지가 클수록 더 위쪽에 배치합니다.
+        const SPECTRUM_TOP_RATIO = 0.10;
+        const SPECTRUM_BOTTOM_RATIO = 0.90;
+        const photonEnergy = (nm) => 1240 / nm;
+        const minPhotonEnergy = Math.min(...hLines.map(line => photonEnergy(line.nm)));
+        const maxPhotonEnergy = Math.max(...hLines.map(line => photonEnergy(line.nm)));
+
+        function getSpectrumYRatio(line) {
+            const energyRange = maxPhotonEnergy - minPhotonEnergy;
+            const energyRatio = energyRange === 0 ? 0.5 : (photonEnergy(line.nm) - minPhotonEnergy) / energyRange;
+            return SPECTRUM_TOP_RATIO + (1 - energyRatio) * (SPECTRUM_BOTTOM_RATIO - SPECTRUM_TOP_RATIO);
+        }
+
+        function getSpectrumCanvasY(line, canvasHeight) {
+            return getSpectrumYRatio(line) * canvasHeight;
+        }
+
+        const rayCanvas = document.getElementById('rayCanvas');
+        const rayCtx = rayCanvas.getContext('2d');
+        const energyCanvas = document.getElementById('energyCanvas');
+        const enCtx = energyCanvas.getContext('2d');
+        const spectrumBar = document.getElementById('spectrum-bar');
+
+        function resize() {
+            rayCanvas.width = rayCanvas.parentElement.clientWidth;
+            rayCanvas.height = rayCanvas.parentElement.clientHeight;
+            energyCanvas.width = energyCanvas.parentElement.clientWidth;
+            energyCanvas.height = energyCanvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function initSpectrumBar() {
+            spectrumBar.innerHTML = '';
+            hLines.forEach(line => {
+                const l = document.createElement('div');
+                l.className = 'spectrum-line';
+                const posPercent = getSpectrumYRatio(line) * 100;
+                l.style.top = `${posPercent}%`;
+                l.style.backgroundColor = line.color;
+                l.style.color = line.color;
+
+                l.addEventListener('mouseenter', () => { activeIdx = line.idx; });
+                l.addEventListener('mouseleave', () => { activeIdx = -1; });
+
+                spectrumBar.appendChild(l);
+            });
+        }
+
+        function roundedRectPath(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + width, y, x + width, y + height, r);
+            ctx.arcTo(x + width, y + height, x, y + height, r);
+            ctx.arcTo(x, y + height, x, y, r);
+            ctx.arcTo(x, y, x + width, y, r);
+            ctx.closePath();
+        }
+
+        function drawRayTracing() {
+            rayCtx.clearRect(0, 0, rayCanvas.width, rayCanvas.height);
+            const w = rayCanvas.width;
+            const h = rayCanvas.height;
+
+            const drawGlowLine = (a, b, color, width, alpha = 1, blur = 8) => {
+                rayCtx.save();
+                rayCtx.globalAlpha = alpha;
+                rayCtx.lineCap = 'round';
+                rayCtx.lineJoin = 'round';
+                rayCtx.shadowBlur = blur;
+                rayCtx.shadowColor = color;
+                rayCtx.strokeStyle = color;
+                rayCtx.lineWidth = width;
+                rayCtx.beginPath();
+                rayCtx.moveTo(a.x, a.y);
+                rayCtx.lineTo(b.x, b.y);
+                rayCtx.stroke();
+                rayCtx.restore();
+            };
+
+            const drawTextBox = (text, x, y, paddingX, paddingY) => {
+                rayCtx.save();
+                rayCtx.font = '600 12px "Segoe UI", sans-serif';
+                const metrics = rayCtx.measureText(text);
+                const boxW = metrics.width + paddingX * 2;
+                const boxH = 22 + paddingY * 2;
+                roundedRectPath(rayCtx, x, y, boxW, boxH, 6);
+                rayCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+                rayCtx.strokeStyle = '#334155';
+                rayCtx.lineWidth = 1;
+                rayCtx.fill();
+                rayCtx.stroke();
+                rayCtx.fillStyle = '#cbd5e1';
+                rayCtx.textBaseline = 'middle';
+                rayCtx.fillText(text, x + paddingX, y + boxH / 2);
+                rayCtx.restore();
+                return { width: boxW, height: boxH };
+            };
+
+            const pointOnLeftFaceAtY = (y, p1, p2) => {
+                const t = (y - p2.y) / (p1.y - p2.y);
+                return {
+                    x: p2.x + t * (p1.x - p2.x),
+                    y
+                };
+            };
+
+            const pointOnRightFaceAtY = (y, p1, p3) => {
+                const t = (y - p3.y) / (p1.y - p3.y);
+                return {
+                    x: p3.x + t * (p1.x - p3.x),
+                    y
+                };
+            };
+
+            const sourceY = h * 0.56;
+            const lampCenterX = w * 0.17;
+            const lampCenterY = sourceY;
+            const tubeW = 46;
+            const tubeH = 136;
+            const tubeX = lampCenterX - tubeW / 2;
+            const tubeY = lampCenterY - tubeH / 2;
+            const tubeRadius = 22;
+
+            const topNode = { x: lampCenterX - 58, y: tubeY - 16 };
+            const bottomNode = { x: lampCenterX - 58, y: tubeY + tubeH + 16 };
+            const nodeRadius = 11;
+
+            const slitX = w * 0.29;
+            const slitGap = 12;
+            const slitHeight = 34;
+
+            const prismSize = Math.min(w, h) * 0.18;
+            const prismC = { x: w * 0.47, y: h * 0.50 };
+            const p1 = { x: prismC.x, y: prismC.y + prismSize * 0.95 };
+            const p2 = { x: prismC.x - prismSize * 0.90, y: prismC.y - prismSize * 0.65 };
+            const p3 = { x: prismC.x + prismSize * 0.90, y: prismC.y - prismSize * 0.65 };
+            const screenX = w - 44;
+
+            const tubeExit = { x: tubeX + tubeW + 6, y: lampCenterY };
+            const entryPoint = pointOnLeftFaceAtY(sourceY, p1, p2);
+            const exitPoint = pointOnRightFaceAtY(sourceY - prismSize * 0.18, p1, p3);
+
+            const incidentAlpha = (activeIdx === -1) ? 0.95 : 0.35;
+            const internalAlpha = (activeIdx === -1) ? 0.78 : 0.45;
+
+            rayCtx.save();
+            const bgGrad = rayCtx.createRadialGradient(lampCenterX, lampCenterY, 8, lampCenterX, lampCenterY, 120);
+            bgGrad.addColorStop(0, 'rgba(168, 85, 247, 0.16)');
+            bgGrad.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
+            rayCtx.fillStyle = bgGrad;
+            rayCtx.beginPath();
+            rayCtx.arc(lampCenterX, lampCenterY, 120, 0, Math.PI * 2);
+            rayCtx.fill();
+            rayCtx.restore();
+
+            drawTextBox('수소 기체 광원', lampCenterX - 58, tubeY - 78, 12, 5);
+            rayCtx.save();
+            rayCtx.font = '700 14px "Segoe UI", sans-serif';
+            rayCtx.fillStyle = '#cbd5e1';
+            rayCtx.textBaseline = 'middle';
+            rayCtx.fillText('고전압', lampCenterX - 104, lampCenterY, 0);
+            rayCtx.restore();
+
+            const drawNode = (pt, sign) => {
+                rayCtx.save();
+                rayCtx.fillStyle = '#e2e8f0';
+                rayCtx.strokeStyle = '#94a3b8';
+                rayCtx.lineWidth = 1.2;
+                rayCtx.beginPath();
+                rayCtx.arc(pt.x, pt.y, nodeRadius, 0, Math.PI * 2);
+                rayCtx.fill();
+                rayCtx.stroke();
+                rayCtx.strokeStyle = '#64748b';
+                rayCtx.lineWidth = 2;
+                rayCtx.beginPath();
+                rayCtx.moveTo(pt.x - 4.5, pt.y);
+                rayCtx.lineTo(pt.x + 4.5, pt.y);
+                if (sign === '+') {
+                    rayCtx.moveTo(pt.x, pt.y - 4.5);
+                    rayCtx.lineTo(pt.x, pt.y + 4.5);
+                }
+                rayCtx.stroke();
+                rayCtx.restore();
+            };
+
+            drawNode(topNode, '+');
+            drawNode(bottomNode, '-');
+
+            rayCtx.save();
+            rayCtx.strokeStyle = '#7c8594';
+            rayCtx.lineWidth = 2.2;
+            rayCtx.lineCap = 'round';
+            rayCtx.beginPath();
+            rayCtx.moveTo(topNode.x + nodeRadius, topNode.y);
+            rayCtx.lineTo(lampCenterX, topNode.y);
+            rayCtx.lineTo(lampCenterX, tubeY + 4);
+            rayCtx.moveTo(bottomNode.x + nodeRadius, bottomNode.y);
+            rayCtx.lineTo(lampCenterX, bottomNode.y);
+            rayCtx.lineTo(lampCenterX, tubeY + tubeH - 4);
+            rayCtx.stroke();
+            rayCtx.restore();
+
+            rayCtx.save();
+            roundedRectPath(rayCtx, tubeX - 4, tubeY - 4, tubeW + 8, tubeH + 8, tubeRadius + 4);
+            rayCtx.fillStyle = 'rgba(196, 181, 253, 0.14)';
+            rayCtx.shadowBlur = 20;
+            rayCtx.shadowColor = 'rgba(196, 181, 253, 0.55)';
+            rayCtx.fill();
+            rayCtx.restore();
+
+            rayCtx.save();
+            roundedRectPath(rayCtx, tubeX, tubeY, tubeW, tubeH, tubeRadius);
+            const tubeGrad = rayCtx.createLinearGradient(tubeX, tubeY, tubeX + tubeW, tubeY);
+            tubeGrad.addColorStop(0, 'rgba(248,250,252,0.18)');
+            tubeGrad.addColorStop(0.5, 'rgba(226,232,240,0.30)');
+            tubeGrad.addColorStop(1, 'rgba(248,250,252,0.18)');
+            rayCtx.fillStyle = 'rgba(255,255,255,0.07)';
+            rayCtx.strokeStyle = '#94a3b8';
+            rayCtx.lineWidth = 1.6;
+            rayCtx.fill();
+            rayCtx.stroke();
+            roundedRectPath(rayCtx, tubeX + 4, tubeY + 4, tubeW - 8, tubeH - 8, tubeRadius - 4);
+            rayCtx.strokeStyle = tubeGrad;
+            rayCtx.lineWidth = 1.1;
+            rayCtx.stroke();
+            rayCtx.restore();
+
+            rayCtx.save();
+            rayCtx.strokeStyle = '#d1d5db';
+            rayCtx.lineWidth = 2;
+            rayCtx.beginPath();
+            rayCtx.moveTo(lampCenterX, tubeY + 12);
+            rayCtx.lineTo(lampCenterX, lampCenterY - 18);
+            rayCtx.moveTo(lampCenterX, lampCenterY + 18);
+            rayCtx.lineTo(lampCenterX, tubeY + tubeH - 12);
+            rayCtx.stroke();
+            rayCtx.restore();
+
+            rayCtx.save();
+            rayCtx.strokeStyle = '#fb923c';
+            rayCtx.shadowBlur = 16;
+            rayCtx.shadowColor = '#fb923c';
+            rayCtx.lineWidth = 2.2;
+            rayCtx.lineCap = 'round';
+            rayCtx.lineJoin = 'round';
+            rayCtx.beginPath();
+            rayCtx.moveTo(lampCenterX, lampCenterY - 20);
+            rayCtx.lineTo(lampCenterX + 3, lampCenterY - 6);
+            rayCtx.lineTo(lampCenterX - 4, lampCenterY + 7);
+            rayCtx.lineTo(lampCenterX + 4, lampCenterY + 19);
+            rayCtx.stroke();
+            rayCtx.restore();
+
+            rayCtx.save();
+            const plasmaGrad = rayCtx.createRadialGradient(lampCenterX, lampCenterY, 8, lampCenterX, lampCenterY, 40);
+            plasmaGrad.addColorStop(0, 'rgba(216, 180, 254, 0.65)');
+            plasmaGrad.addColorStop(0.5, 'rgba(168, 85, 247, 0.26)');
+            plasmaGrad.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
+            rayCtx.fillStyle = plasmaGrad;
+            rayCtx.beginPath();
+            rayCtx.arc(lampCenterX, lampCenterY, 40, 0, Math.PI * 2);
+            rayCtx.fill();
+            rayCtx.restore();
+
+            rayCtx.save();
+            rayCtx.font = '600 12px "Segoe UI", sans-serif';
+            rayCtx.fillStyle = '#cbd5e1';
+            rayCtx.textAlign = 'center';
+            rayCtx.fillText('수소 기체', lampCenterX, tubeY + tubeH + 34);
+            rayCtx.fillText('방전관', lampCenterX, tubeY + tubeH + 50);
+            rayCtx.textAlign = 'start';
+            rayCtx.restore();
+
+            rayCtx.save();
+            rayCtx.fillStyle = '#475569';
+            rayCtx.fillRect(slitX, sourceY - slitGap / 2 - slitHeight, 4, slitHeight);
+            rayCtx.fillRect(slitX, sourceY + slitGap / 2, 4, slitHeight);
+            rayCtx.restore();
+
+            drawGlowLine(tubeExit, { x: slitX, y: sourceY }, '#f8fafc', 2.8, incidentAlpha, 14);
+            drawGlowLine({ x: slitX + 4, y: sourceY }, entryPoint, '#f8fafc', 2.4, incidentAlpha, 12);
+
+            rayCtx.save();
+            rayCtx.beginPath();
+            rayCtx.moveTo(p1.x, p1.y);
+            rayCtx.lineTo(p2.x, p2.y);
+            rayCtx.lineTo(p3.x, p3.y);
+            rayCtx.closePath();
+            rayCtx.fillStyle = 'rgba(15, 23, 42, 0.38)';
+            rayCtx.fill();
+            rayCtx.restore();
+
+            drawGlowLine(entryPoint, exitPoint, '#e9d5ff', 2.2, internalAlpha, 10);
+
+            rayCtx.save();
+            rayCtx.globalAlpha = 0.75;
+            rayCtx.fillStyle = '#f8fafc';
+            rayCtx.shadowBlur = 16;
+            rayCtx.shadowColor = '#f8fafc';
+            rayCtx.beginPath();
+            rayCtx.arc(entryPoint.x, entryPoint.y, 3.2, 0, Math.PI * 2);
+            rayCtx.fill();
+            rayCtx.fillStyle = '#fef3c7';
+            rayCtx.shadowColor = '#fef3c7';
+            rayCtx.beginPath();
+            rayCtx.arc(exitPoint.x, exitPoint.y, 3.4, 0, Math.PI * 2);
+            rayCtx.fill();
+            rayCtx.restore();
+
+            hLines.forEach(line => {
+                const isHovered = (activeIdx === line.idx);
+                const isDimmed = (activeIdx !== -1 && !isHovered);
+                const screenY = getSpectrumCanvasY(line, h);
+                const alpha = isDimmed ? 0.12 : (isHovered ? 1.0 : 0.82);
+                const width = isHovered ? 4.0 : 2.5;
+                const blur = isHovered ? 20 : 11;
+
+                drawGlowLine(exitPoint, { x: screenX, y: screenY }, line.color, width, alpha, blur);
+
+                if (!isDimmed) {
+                    rayCtx.save();
+                    rayCtx.globalAlpha = isHovered ? 1.0 : 0.82;
+                    rayCtx.fillStyle = line.color;
+                    rayCtx.shadowBlur = isHovered ? 12 : 5;
+                    rayCtx.shadowColor = line.color;
+                    rayCtx.font = isHovered ? 'bold 15px "Segoe UI", sans-serif' : 'bold 12px "Segoe UI", sans-serif';
+                    rayCtx.textBaseline = 'middle';
+                    rayCtx.fillText(line.label, screenX + 12, screenY);
+                    rayCtx.restore();
+                }
+            });
+
+            rayCtx.save();
+            rayCtx.beginPath();
+            rayCtx.moveTo(p1.x, p1.y);
+            rayCtx.lineTo(p2.x, p2.y);
+            rayCtx.lineTo(p3.x, p3.y);
+            rayCtx.closePath();
+            rayCtx.strokeStyle = '#3b82f6';
+            rayCtx.lineWidth = 2.2;
+            rayCtx.shadowBlur = 10;
+            rayCtx.shadowColor = '#3b82f6';
+            rayCtx.stroke();
+            rayCtx.restore();
+
+            rayCtx.save();
+            rayCtx.strokeStyle = '#64748b';
+            rayCtx.lineWidth = 6;
+            rayCtx.lineCap = 'round';
+            rayCtx.beginPath();
+            rayCtx.moveTo(screenX, h * SPECTRUM_TOP_RATIO);
+            rayCtx.lineTo(screenX, h * SPECTRUM_BOTTOM_RATIO);
+            rayCtx.stroke();
+            rayCtx.restore();
+        }
+
+        let energyHitBoxes = [];
+
+        function drawEnergyLevels() {
+            enCtx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+            const w = energyCanvas.width;
+            const h = energyCanvas.height;
+
+            enCtx.beginPath();
+            enCtx.moveTo(30, h - 30);
+            enCtx.lineTo(30, 40);
+            enCtx.strokeStyle = '#64748b';
+            enCtx.lineWidth = 1.5;
+            enCtx.stroke();
+
+            enCtx.beginPath();
+            enCtx.moveTo(26, 45); enCtx.lineTo(30, 35); enCtx.lineTo(34, 45);
+            enCtx.fillStyle = '#64748b'; enCtx.fill();
+            enCtx.font = 'italic 16px "Segoe UI", sans-serif';
+            enCtx.fillText('E', 12, 55);
+
+            const yBase = h - 60;
+            const yInf = 60;
+
+            const getLevelY = (n) => {
+                if (n === Infinity) return yInf;
+                const e = -1 / (n * n);
+                const e2 = -0.25;
+                const eInf = 0;
+                return yBase - ((e - e2) / (eInf - e2)) * (yBase - yInf);
+            };
+
+            enCtx.lineWidth = 1.5;
+            [2, 3, 4, 5, 6].forEach(n => {
+                const y = getLevelY(n);
+                enCtx.beginPath();
+                enCtx.moveTo(40, y);
+                enCtx.lineTo(w - 20, y);
+                enCtx.strokeStyle = (n === 2) ? '#94a3b8' : '#334155';
+                enCtx.stroke();
+            });
+
+            for (let i = 1; i <= 4; i++) {
+                const y = getLevelY(Infinity) + i * 5;
+                enCtx.beginPath();
+                enCtx.moveTo(40, y);
+                enCtx.lineTo(w - 20, y);
+                enCtx.strokeStyle = '#1e293b';
+                enCtx.stroke();
+            }
+
+            energyHitBoxes = [];
+
+            hLines.forEach((line, i) => {
+                const startY = getLevelY(line.n_from);
+                const endY = getLevelY(2);
+                const midY = (startY + endY) / 2;
+
+                const x = w - 80 - (i * 80);
+
+                const isHovered = (activeIdx === line.idx);
+                const isDimmed = (activeIdx !== -1 && !isHovered);
+
+                enCtx.globalAlpha = isDimmed ? 0.2 : (isHovered ? 1.0 : 0.8);
+                const strokeW = isHovered ? 3 : 1.5;
+
+                energyHitBoxes.push({
+                    idx: line.idx,
+                    xMin: x - 25, xMax: x + 65,
+                    yMin: yInf, yMax: yBase
+                });
+
+                enCtx.beginPath();
+                enCtx.strokeStyle = line.color;
+                enCtx.lineWidth = strokeW;
+
+                if (isHovered) {
+                    enCtx.shadowBlur = 10;
+                    enCtx.shadowColor = line.color;
+                }
+
+                for (let py = startY; py <= endY - 6; py++) {
+                    const ratio = (py - startY) / (endY - startY);
+                    const phase = time * (isHovered ? 0.15 : 0.05);
+                    const freq = line.n_from * 1.5;
+                    const px = x + Math.sin(ratio * Math.PI * 2 * freq - phase) * 5;
+                    if (py === startY) enCtx.moveTo(px, py);
+                    else enCtx.lineTo(px, py);
+                }
+                enCtx.stroke();
+                enCtx.shadowBlur = 0;
+
+                enCtx.beginPath();
+                enCtx.moveTo(x - 5, endY - 8);
+                enCtx.lineTo(x, endY);
+                enCtx.lineTo(x + 5, endY - 8);
+                enCtx.fillStyle = line.color;
+                enCtx.fill();
+
+                enCtx.beginPath();
+                enCtx.moveTo(x + 8, midY);
+                enCtx.lineTo(x + 18, midY);
+                enCtx.strokeStyle = line.color;
+                enCtx.lineWidth = 1;
+                enCtx.stroke();
+
+                enCtx.fillStyle = line.color;
+                enCtx.font = isHovered ? 'bold 12px "Segoe UI", sans-serif' : 'bold 11px "Segoe UI", sans-serif';
+                enCtx.textBaseline = 'middle';
+                enCtx.fillText(`ΔE = hc/${line.label}`, x + 22, midY);
+
+                enCtx.font = '10px "Segoe UI", sans-serif';
+                enCtx.fillText(line.label, w - 25, startY);
+            });
+
+            enCtx.globalAlpha = 1.0;
+        }
+
+        function animate() {
+            drawRayTracing();
+            drawEnergyLevels();
+
+            const lines = spectrumBar.children;
+            for (let i = 0; i < lines.length; i++) {
+                if (activeIdx === hLines[i].idx) {
+                    lines[i].classList.add('active');
+                    lines[i].style.boxShadow = `0 0 15px ${hLines[i].color}`;
+                    lines[i].style.opacity = '1';
+                } else {
+                    lines[i].classList.remove('active');
+                    lines[i].style.boxShadow = '0 0 5px currentColor';
+                    lines[i].style.opacity = (activeIdx !== -1) ? '0.2' : '1';
+                }
+            }
+
+            time++;
+            requestAnimationFrame(animate);
+        }
+
+        energyCanvas.addEventListener('mousemove', (e) => {
+            const rect = energyCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let found = false;
+            for (let box of energyHitBoxes) {
+                if (mouseX >= box.xMin && mouseX <= box.xMax && mouseY >= box.yMin && mouseY <= box.yMax) {
+                    activeIdx = box.idx;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) activeIdx = -1;
+        });
+
+        energyCanvas.addEventListener('mouseleave', () => {
+            activeIdx = -1;
+        });
+
+        resize();
+        initSpectrumBar();
+        animate();
+    </script>
+</body>
+</html>

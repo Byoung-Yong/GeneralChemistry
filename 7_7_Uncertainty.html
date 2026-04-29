@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>하이젠베르크의 불확정성 원리 시각화</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* [2025-07-30] 요청사항: 폰트 패밀리는 영문 이름만 사용 */
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0b1120;
+            color: #f8fafc;
+        }
+        
+        /* 커스텀 슬라이더 스타일 */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+            width: 100%;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        
+        /* 수식용 폰트 */
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="max-w-5xl w-full">
+        <!-- 헤더 및 설명 -->
+        <header class="theme-hero text-center mb-8 rounded-3xl w-full">
+            <h1 class="text-3xl md:text-4xl font-bold mb-3 glow-text text-cyan-400">하이젠베르크의 불확정성 원리</h1>
+            <p class="text-slate-400 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
+                양자역학에서 입자의 <strong class="text-white">위치</strong>와 <strong class="text-white">운동량(속도)</strong>은 동시에 정확하게 알 수 없습니다.<br>
+                하나를 정확하게 측정하려 할수록, 다른 하나는 필연적으로 불확실해집니다.
+                <br><span class="math text-lg mt-2 inline-block">Δx · Δp ≥ ℏ / 2</span>
+            </p>
+        </header>
+
+        <!-- 컨트롤 패널 -->
+        <div class="theme-panel bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm mb-8 shadow-xl">
+            <div class="flex justify-between text-xs md:text-sm text-slate-300 mb-4 font-medium tracking-wide">
+                <span class="text-cyan-300">← 위치를 명확하게 (Δx 감소)</span>
+                <span class="text-fuchsia-300">운동량을 명확하게 (Δp 감소) →</span>
+            </div>
+            
+            <input type="range" id="sigmaSlider" min="1.5" max="350" value="75" step="0.5">
+            
+            <div class="mt-6 text-center h-12 flex items-center justify-center">
+                <p id="dynamicExplanation" class="text-slate-200 font-medium md:text-lg transition-all duration-300"></p>
+            </div>
+        </div>
+
+        <!-- 메인 시각화: 파동 묶음 -->
+        <div class="theme-panel bg-slate-800/30 p-1 md:p-4 rounded-2xl border border-slate-700/50 mb-6 relative shadow-lg">
+            <h2 class="absolute top-4 left-6 text-slate-300 font-medium z-10 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
+                입자의 파동 묶음 (Wave Packet)
+            </h2>
+            <canvas id="waveCanvas" class="w-full h-64 md:h-80 rounded-xl bg-slate-900"></canvas>
+        </div>
+
+        <!-- 하단 그래프: 확률 분포 -->
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- 위치 불확정성 -->
+            <div class="theme-panel flex-1 bg-slate-800/30 p-1 md:p-4 rounded-2xl border border-slate-700/50 relative">
+                <h3 class="absolute top-4 left-6 text-slate-300 text-sm font-medium z-10">위치 확률 분포 <span class="math">|Ψ(x)|²</span></h3>
+                <canvas id="posCanvas" class="w-full h-48 rounded-xl bg-slate-900"></canvas>
+            </div>
+            
+            <!-- 운동량 불확정성 -->
+            <div class="theme-panel flex-1 bg-slate-800/30 p-1 md:p-4 rounded-2xl border border-slate-700/50 relative">
+                <h3 class="absolute top-4 left-6 text-slate-300 text-sm font-medium z-10">운동량 확률 분포 <span class="math">|Φ(p)|²</span></h3>
+                <canvas id="momCanvas" class="w-full h-48 rounded-xl bg-slate-900"></canvas>
+            </div>
+        </div>
+        
+        <p class="text-center text-slate-500 text-xs mt-6">※ 시각적 이해를 돕기 위해 확률 분포 그래프의 최대 높이는 고정되었습니다.</p>
+    </div>
+
+    <script>
+        // 캔버스 설정 유틸리티 (고해상도 디스플레이 대응)
+        function setupCanvas(id) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            
+            function resize() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                // 패딩을 고려한 크기 조정
+                const width = rect.width - (window.innerWidth < 768 ? 8 : 32); 
+                const height = rect.height - (window.innerWidth < 768 ? 8 : 32);
+                
+                canvas.width = width * window.devicePixelRatio;
+                canvas.height = height * window.devicePixelRatio;
+                ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+                
+                return { w: width, h: height };
+            }
+            
+            return { canvas, ctx, resize };
+        }
+
+        const waveData = setupCanvas('waveCanvas');
+        const posData = setupCanvas('posCanvas');
+        const momData = setupCanvas('momCanvas');
+        
+        let dims = { wave: {}, pos: {}, mom: {} };
+
+        function handleResize() {
+            dims.wave = waveData.resize();
+            dims.pos = posData.resize();
+            dims.mom = momData.resize();
+        }
+
+        window.addEventListener('resize', handleResize);
+        // 초기 크기 설정
+        handleResize();
+
+        // 애니메이션 변수
+        let time = 0;
+        const slider = document.getElementById('sigmaSlider');
+        const textEl = document.getElementById('dynamicExplanation');
+
+        // 양방향 화살표 그리기 함수 (불확정성 범위 표시용)
+        function drawArrow(ctx, x1, x2, y, color, label) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+            
+            // 선
+            ctx.beginPath();
+            ctx.moveTo(x1, y);
+            ctx.lineTo(x2, y);
+            ctx.stroke();
+
+            // 왼쪽 화살촉
+            ctx.beginPath();
+            ctx.moveTo(x1, y);
+            ctx.lineTo(x1 + 6, y - 4);
+            ctx.lineTo(x1 + 6, y + 4);
+            ctx.fill();
+
+            // 오른쪽 화살촉
+            ctx.beginPath();
+            ctx.moveTo(x2, y);
+            ctx.lineTo(x2 - 6, y - 4);
+            ctx.lineTo(x2 - 6, y + 4);
+            ctx.fill();
+
+            // 라벨 텍스트
+            ctx.font = "italic 16px 'Times New Roman', serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillText(label, (x1 + x2) / 2, y - 8);
+        }
+
+        // 파동 묶음 (Wave Packet) 그리기
+        function drawWave(sigma_x, t) {
+            const { ctx } = waveData;
+            const { w, h } = dims.wave;
+            ctx.clearRect(0, 0, w, h);
+            
+            const cx = w / 2;
+            const cy = h / 2;
+            const amplitude = h * 0.35;
+            const k = 0.3; // 파수 (Wave number)
+
+            // 중심선
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(w, cy);
+            ctx.stroke();
+
+            // 봉투(Envelope) 그리기 - 점선
+            ctx.strokeStyle = 'rgba(217, 70, 239, 0.6)'; // fuchsia-500
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            for (let x = 0; x <= w; x += 2) {
+                let env = Math.exp(-Math.pow(x - cx, 2) / (2 * Math.pow(sigma_x, 2)));
+                let y = cy - amplitude * env;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let x = 0; x <= w; x += 2) {
+                let env = Math.exp(-Math.pow(x - cx, 2) / (2 * Math.pow(sigma_x, 2)));
+                let y = cy + amplitude * env;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 실제 파동 그리기
+            ctx.strokeStyle = '#22d3ee'; // cyan-400
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let x = 0; x <= w; x += 1) {
+                let env = Math.exp(-Math.pow(x - cx, 2) / (2 * Math.pow(sigma_x, 2)));
+                // 시간 t를 더해주어 파동이 이동하는 것처럼 보이게 함
+                let wave = Math.cos(k * (x - cx) - t * 3);
+                let y = cy - amplitude * env * wave;
+                
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // 확률 분포 그리기 (가우시안)
+        function drawDistribution(contextData, dimensions, sigma, color, label) {
+            const { ctx } = contextData;
+            const { w, h } = dimensions;
+            ctx.clearRect(0, 0, w, h);
+            
+            const cx = w / 2;
+            const baseCy = h - 30;
+            const peakHeight = h * 0.6;
+            
+            // X축
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(10, baseCy);
+            ctx.lineTo(w - 10, baseCy);
+            ctx.stroke();
+
+            // 그라데이션 채우기
+            let grad = ctx.createLinearGradient(0, baseCy - peakHeight, 0, baseCy);
+            grad.addColorStop(0, color.replace('1)', '0.5)')); // 투명도 조절
+            grad.addColorStop(1, color.replace('1)', '0.0)'));
+
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, baseCy);
+            
+            for (let x = 0; x <= w; x += 2) {
+                let y = baseCy - peakHeight * Math.exp(-Math.pow(x - cx, 2) / (2 * Math.pow(sigma, 2)));
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.lineTo(w, baseCy);
+            ctx.fill();
+            ctx.stroke();
+
+            // 불확정성 구간(Δ) 표시 화살표
+            // 1-sigma 지점 (높이가 약 60.6% 인 곳)
+            const sigmaY = baseCy - peakHeight * Math.exp(-0.5); 
+            drawArrow(ctx, cx - sigma, cx + sigma, sigmaY, color, label);
+        }
+
+        // 메인 애니메이션 루프
+        function animate() {
+            time += 0.05;
+            
+            // 1.5 ~ 350 범위
+            const sliderVal = parseFloat(slider.value);
+            
+            // 위치의 불확정도 (화면 픽셀 스케일 적용)
+            const sigma_x = sliderVal;
+            
+            // 운동량의 불확정도 (반비례 관계: Δx * Δp = Constant)
+            // 상수는 화면 크기에 맞게 시각적으로 적절히 조절
+            const constant = 4500; 
+            const sigma_p = constant / sigma_x;
+
+            // 설명 텍스트 업데이트
+            if (sliderVal < 40) {
+                textEl.innerHTML = "입자의 <span class='text-cyan-400'>위치</span>는 정확하지만, 파장이 찌그러져 <span class='text-fuchsia-400'>운동량(속도)</span>을 전혀 예측할 수 없습니다.";
+            } else if (sliderVal > 180) {
+                textEl.innerHTML = "파장이 일정해 <span class='text-fuchsia-400'>운동량(속도)</span>은 정확하지만, 파동이 넓게 퍼져 <span class='text-cyan-400'>위치</span>를 알 수 없습니다.";
+            } else {
+                textEl.innerHTML = "위치와 운동량의 불확정성이 서로 타협점을 이루고 있는 중간 상태입니다.";
+            }
+
+            // 그리기 호출
+            drawWave(sigma_x, time);
+            
+            // rgba 컬러 코드 (투명도 조작을 위해 포맷 맞춤)
+            drawDistribution(posData, dims.pos, sigma_x, 'rgba(34, 211, 238, 1)', 'Δx'); // cyan-400
+            drawDistribution(momData, dims.mom, sigma_p, 'rgba(217, 70, 239, 1)', 'Δp'); // fuchsia-500
+
+            requestAnimationFrame(animate);
+        }
+
+        // 애니메이션 시작
+        animate();
+    </script>
+</body>
+</html>

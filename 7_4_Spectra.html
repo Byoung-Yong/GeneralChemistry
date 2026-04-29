@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>원소별 스펙트럼 분석 실험 - 정밀 물리 모델링</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 사용자 요청에 따라 영문 폰트 패밀리만 사용합니다. */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+
+        .canvas-container {
+            background-color: #020617;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            box-shadow: inset 0 0 60px rgba(0,0,0,1);
+            position: relative;
+        }
+
+        .spectrum-bar {
+            height: 70px;
+            width: 100%;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        .spectral-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            box-shadow: 0 0 12px currentColor;
+            z-index: 10;
+        }
+
+        .btn-source {
+            transition: all 0.2s ease-in-out;
+            border: 1px solid #475569;
+        }
+        .btn-active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            border-color: #60a5fa;
+        }
+
+        .wavelength-label {
+            font-size: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="theme-shell max-w-6xl w-full flex flex-col gap-6 p-6">
+        
+        <header class="theme-hero text-center border-b border-slate-700 pb-4 rounded-3xl">
+            <h1 class="text-3xl font-bold mb-2 text-white">빛의 분산: 연속 스펙트럼 시각화</h1>
+            <p class="text-slate-400">백색광이 프리즘을 통과하며 <b>끊김 없는 연속적인 색채의 띠</b>로 분산되는 과정을 관찰하세요.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 왼쪽: 컨트롤 패널 -->
+            <div class="lg:col-span-4 flex flex-col gap-5">
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-6">
+                    <h2 class="text-lg font-bold text-blue-400 border-l-4 border-blue-500 pl-3">광원 선택</h2>
+                    
+                    <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+                        <button onclick="setSource('solar')" id="btn-solar" class="btn-source flex items-center gap-3 p-3 rounded-lg bg-slate-900/50 hover:bg-slate-700 text-left">
+                            <div class="w-6 h-6 rounded-full bg-yellow-400 shadow-inner"></div>
+                            <span class="font-bold text-xs">백색광 (White)</span>
+                        </button>
+                        
+                        <button onclick="setSource('hydrogen')" id="btn-hydrogen" class="btn-source flex items-center gap-3 p-3 rounded-lg bg-slate-900/50 hover:bg-slate-700 text-left">
+                            <div class="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-[8px] font-bold">H</div>
+                            <span class="font-bold text-xs">수소 (Hydrogen)</span>
+                        </button>
+
+                        <button onclick="setSource('lithium')" id="btn-lithium" class="btn-source flex items-center gap-3 p-3 rounded-lg bg-slate-900/50 hover:bg-slate-700 text-left">
+                            <div class="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-[8px] font-bold">Li</div>
+                            <span class="font-bold text-xs">리튬 (Lithium)</span>
+                        </button>
+
+                        <button onclick="setSource('sodium')" id="btn-sodium" class="btn-source flex items-center gap-3 p-3 rounded-lg bg-slate-900/50 hover:bg-slate-700 text-left">
+                            <div class="w-6 h-6 rounded-full bg-yellow-600 flex items-center justify-center text-[8px] font-bold">Na</div>
+                            <span class="font-bold text-xs">나트륨 (Sodium)</span>
+                        </button>
+
+                        <button onclick="setSource('cesium')" id="btn-cesium" class="btn-source flex items-center gap-3 p-3 rounded-lg bg-slate-900/50 hover:bg-slate-700 text-left">
+                            <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[8px] font-bold">Cs</div>
+                            <span class="font-bold text-xs">세슘 (Cesium)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex-1">
+                    <h2 class="text-lg font-bold text-emerald-400 border-l-4 border-emerald-500 pl-3 mb-4">학습 리포트</h2>
+                    <div id="info-box" class="text-sm leading-relaxed text-slate-300 space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 시각화 -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <!-- 실험 장치 캔버스 -->
+                <div class="theme-panel bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[480px]">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs text-slate-500 font-bold uppercase tracking-widest">Ray Tracing Visualization</span>
+                        <div class="flex gap-4 text-[10px] text-slate-500 font-bold">
+                            <span class="flex items-center gap-1"><div class="w-2 h-2 bg-white rounded-full"></div> 입사광</span>
+                            <span class="flex items-center gap-1"><div class="w-2 h-2 bg-gradient-to-r from-violet-500 to-red-500 rounded-full"></div> 분산광(Beam)</span>
+                        </div>
+                    </div>
+                    <div class="canvas-container flex-1 overflow-hidden relative">
+                        <canvas id="experimentCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                    </div>
+                </div>
+
+                <!-- 검출 결과 스펙트럼 -->
+                <div class="theme-panel bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-slate-300" id="spectrum-title">검출 결과</h3>
+                        <span id="res-type" class="text-[10px] bg-slate-900 px-2 py-1 rounded text-blue-300 border border-blue-500/30 font-mono uppercase tracking-widest"></span>
+                    </div>
+                    
+                    <div class="spectrum-bar" id="spectrum-view"></div>
+                    
+                    <div class="flex justify-between mt-3 px-1">
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">400nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">450nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">500nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">550nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">600nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">650nm</span></div>
+                        <div class="text-center"><div class="w-0.5 h-2 bg-slate-600 mx-auto"></div><span class="wavelength-label">700nm</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('experimentCanvas');
+        const ctx = canvas.getContext('2d');
+        const infoBox = document.getElementById('info-box');
+        const resType = document.getElementById('res-type');
+        const spectrumView = document.getElementById('spectrum-view');
+        const spectrumTitle = document.getElementById('spectrum-title');
+
+        let currentSource = 'solar';
+        let time = 0;
+
+        const sourceData = {
+            solar: {
+                name: "백색광 (White Light)",
+                type: "Continuous",
+                info: "가시광선의 모든 파장이 포함되어 있습니다. 프리즘의 굴절률 차이에 의해 색상들이 부채꼴 모양의 <b>연속적인 빔</b>으로 펼쳐집니다.",
+                baseColor: "#ffffff",
+                // 연속 스펙트럼을 위해 촘촘한 라인 생성 (150개)
+                lines: Array.from({length: 151}, (_, i) => {
+                    const nm = 400 + i * 2;
+                    return { nm, color: `hsl(${(1 - (nm - 400) / 300) * 280}, 100%, 60%)` };
+                })
+            },
+            hydrogen: {
+                name: "수소 (Hydrogen)",
+                type: "Line Spectrum",
+                info: "수소 원자의 에너지 준위 전이에 따른 4개의 고유 파장(410, 434, 486, 656 nm)이 불연속적인 선으로 나타납니다.",
+                baseColor: "#a855f7",
+                lines: [{ nm: 410, color: '#8b5cf6' }, { nm: 434, color: '#6366f1' }, { nm: 486, color: '#06b6d4' }, { nm: 656, color: '#ef4444' }]
+            },
+            lithium: {
+                name: "리튬 (Lithium)",
+                type: "Line Spectrum",
+                info: "리튬은 671nm의 강한 붉은색 선을 가집니다. 프리즘을 통과할 때 이 선이 가장 적게 굴절되어 하단에 위치하게 됩니다.",
+                baseColor: "#f87171",
+                lines: [{ nm: 460, color: '#0080ff' }, { nm: 610, color: '#ff8000' }, { nm: 671, color: '#ff0000' }]
+            },
+            sodium: {
+                name: "나트륨 (Sodium)",
+                type: "Line Spectrum",
+                info: "589nm 부근의 노란색 선이 매우 강력합니다. 사실 아주 가까운 두 선이지만, 교육용 모델에서는 하나의 굵은 선으로 묘사됩니다.",
+                baseColor: "#facc15",
+                lines: [{ nm: 589, color: '#ffff00' }]
+            },
+            cesium: {
+                name: "세슘 (Cesium)",
+                type: "Line Spectrum",
+                info: "청색(455, 459nm) 계열의 선들이 특징적입니다. 이 파장들은 굴절률이 높아 프리즘에서 더 크게 휘어집니다.",
+                baseColor: "#60a5fa",
+                lines: [{ nm: 455, color: '#0000ff' }, { nm: 459, color: '#0040ff' }, { nm: 697, color: '#800000' }]
+            }
+        };
+
+        function setSource(id) {
+            currentSource = id;
+            updateUI();
+        }
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function updateUI() {
+            const data = sourceData[currentSource];
+            document.querySelectorAll('.btn-source').forEach(btn => btn.classList.remove('btn-active'));
+            document.getElementById(`btn-${currentSource}`).classList.add('btn-active');
+            spectrumTitle.innerText = `${data.name} 스펙트럼`;
+            resType.innerText = data.type;
+            infoBox.innerHTML = `<p><strong class="text-white">${data.name}:</strong></p><p class="text-slate-400 text-xs">${data.info}</p>`;
+            
+            spectrumView.innerHTML = '';
+            if(currentSource === 'solar') {
+                const grad = document.createElement('div');
+                grad.className = 'w-full h-full';
+                grad.style.background = 'linear-gradient(to right, #4b0082, #0000ff, #00ff00, #ffff00, #ffa500, #ff0000)';
+                spectrumView.appendChild(grad);
+            } else {
+                data.lines.forEach(line => {
+                    const l = document.createElement('div');
+                    l.className = 'spectral-line';
+                    l.style.left = ((line.nm - 400) / 300) * 100 + '%';
+                    l.style.backgroundColor = line.color;
+                    l.style.color = line.color;
+                    spectrumView.appendChild(l);
+                });
+            }
+        }
+
+        function getRefractiveIndex(lambda) {
+            // Cauchy 분산 공식 근사
+            return 1.5 + 4000 / (lambda * lambda * 0.1); 
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const w = canvas.width;
+            const h = canvas.height;
+            const data = sourceData[currentSource];
+
+            // 1. 프리즘 기하학
+            const prismSize = 80;
+            const prismC = { x: w * 0.52, y: h * 0.5 };
+            const p1 = { x: prismC.x, y: prismC.y - prismSize };
+            const p2 = { x: prismC.x - prismSize * 0.86, y: prismC.y + prismSize * 0.5 };
+            const p3 = { x: prismC.x + prismSize * 0.86, y: prismC.y + prismSize * 0.5 };
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.closePath();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1.5;
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.05)';
+            ctx.fill();
+            ctx.stroke();
+
+            // 2. 광원/슬릿
+            const sourceX = w * 0.1;
+            const sourceY = h * 0.52;
+            const slitX = w * 0.3;
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(slitX, h * 0.42, 4, 30);
+            ctx.fillRect(slitX, h * 0.56, 4, 30);
+
+            ctx.beginPath();
+            const g = ctx.createRadialGradient(sourceX, sourceY, 0, sourceX, sourceY, 30);
+            g.addColorStop(0, '#fff');
+            g.addColorStop(0.3, data.baseColor);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.arc(sourceX, sourceY, 18, 0, Math.PI*2);
+            ctx.fill();
+
+            // 3. 레이 트레이싱
+            const screenX = w * 0.92;
+            const beamOpacity = 0.6 + Math.sin(time*0.04)*0.1;
+
+            const slopeLeft = (p2.y - p1.y) / (p2.x - p1.x);
+            const normalAngleLeft = Math.atan2(p2.y - p1.y, p2.x - p1.x) - Math.PI/2;
+            const entryX = (sourceY - p1.y) / slopeLeft + p1.x;
+            const entryPoint = { x: entryX, y: sourceY };
+
+            // 입사 빔 (광원 -> 프리즘)
+            ctx.beginPath();
+            ctx.strokeStyle = data.baseColor;
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = beamOpacity;
+            ctx.moveTo(sourceX + 10, sourceY);
+            ctx.lineTo(entryPoint.x, entryPoint.y);
+            ctx.stroke();
+
+            // 분산 빔 드로잉
+            const points = data.lines.map(line => {
+                const n = getRefractiveIndex(line.nm);
+                const airN = 1.0;
+                const thetaInc1 = 0 - normalAngleLeft;
+                const thetaRefr1 = Math.asin((airN * Math.sin(thetaInc1)) / n);
+                const rayAngleInternal = normalAngleLeft + thetaRefr1;
+
+                const mRay = Math.tan(rayAngleInternal);
+                const mFaceRight = (p3.y - p1.y) / (p3.x - p1.x);
+                const exitX = (p1.y - entryPoint.y + mRay * entryPoint.x - mFaceRight * p1.x) / (mRay - mFaceRight);
+                const exitY = entryPoint.y + mRay * (exitX - entryPoint.x);
+                const exitPoint = { x: exitX, y: exitY };
+
+                const normalAngleRight = Math.atan2(p3.y - p1.y, p3.x - p1.x) + Math.PI/2;
+                const thetaInc2 = rayAngleInternal - normalAngleRight;
+                const thetaRefr2 = Math.asin((n * Math.sin(thetaInc2)) / airN);
+                const rayAngleExit = normalAngleRight + thetaRefr2;
+
+                const visualFinalY = h * 0.15 + ((line.nm - 400) / 300) * (h * 0.7);
+                
+                return { entry: entryPoint, exit: exitPoint, screen: {x: screenX, y: visualFinalY}, color: line.color };
+            });
+
+            // 연속적인 빔 효과를 위해 라인을 매우 촘촘하게 혹은 면으로 렌더링
+            points.forEach((p, i) => {
+                // 프리즘 내부
+                ctx.beginPath();
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = currentSource === 'solar' ? 2 : 3;
+                ctx.globalAlpha = currentSource === 'solar' ? 0.3 : 0.4;
+                ctx.moveTo(p.entry.x, p.entry.y);
+                ctx.lineTo(p.exit.x, p.exit.y);
+                ctx.stroke();
+
+                // 프리즘 외부 -> 스크린
+                ctx.beginPath();
+                ctx.globalAlpha = currentSource === 'solar' ? 0.5 : 0.8;
+                if (currentSource !== 'solar') {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = p.color;
+                }
+                ctx.moveTo(p.exit.x, p.exit.y);
+                ctx.lineTo(p.screen.x, p.screen.y);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            });
+
+            // 4. 스크린 바
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(screenX, h * 0.1);
+            ctx.lineTo(screenX, h * 0.9);
+            ctx.stroke();
+
+            time++;
+            requestAnimationFrame(draw);
+        }
+
+        updateUI();
+        draw();
+    </script>
+</body>
+</html>

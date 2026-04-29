@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>물질파: 전자의 이중 슬릿 간섭 무늬 (Matter Waves)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* 폰트 패밀리는 영문명만 사용 (요청 사항) */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+            overflow-x: hidden;
+        }
+
+        .highlight-blue { color: #3b82f6; font-weight: bold; }
+        .highlight-red { color: #ef4444; font-weight: bold; }
+        .highlight-emerald { color: #10b981; font-weight: bold; }
+
+        /* 커스텀 슬라이더 (슬릿 선택기 용) */
+        input[type=range].slider-slit {
+            accent-color: #10b981; /* emerald-500 */
+        }
+
+        /* 메인 스크린 캔버스 래퍼 (정면 뷰) */
+        .screen-container {
+            background-color: #000000;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 탑뷰 캔버스 래퍼 */
+        .topdown-container {
+            background-color: #020617; /* slate-950 */
+            border: 2px solid #334155;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+        }
+
+        /* 빔 토글 스위치 커스텀 */
+        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
+        .toggle-checkbox { right: 4px; z-index: 1; border-color: #94a3b8; transition: all 0.3s; }
+        .toggle-label { width: 3rem; height: 1.5rem; background-color: #475569; border-radius: 9999px; transition: all 0.3s; }
+    </style>
+</head>
+<body class="theme-page min-h-screen p-4 md:p-6 flex flex-col items-center">
+
+    <div class="theme-shell max-w-7xl w-full flex flex-col gap-6 p-6">
+        
+        <header class="theme-hero text-center border-b border-slate-700 pb-4 rounded-3xl">
+            <h1 class="text-3xl font-bold mb-2 text-white">물질파: 전자의 이중 슬릿 실험</h1>
+            <p class="text-slate-400">전자를 1개씩 발사하여 슬릿을 통과하는 모습과 스크린에 맺히는 <b>간섭 무늬</b>를 확인해보세요.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 왼쪽: 실험 조작 패널 -->
+            <div class="lg:col-span-4 flex flex-col gap-5">
+                
+                <!-- 1. 실험 데이터 (시간, 전자 수) -->
+                <div class="flex gap-4">
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg text-center flex-1">
+                        <p class="text-xs text-slate-400 mb-1 uppercase tracking-wider">경과 시간</p>
+                        <p class="font-mono text-2xl text-white"><span id="time-val">0.0</span> <span class="text-sm">s</span></p>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg text-center flex-1">
+                        <p class="text-xs text-slate-400 mb-1 uppercase tracking-wider">스크린 도달 수</p>
+                        <p class="font-mono text-2xl text-yellow-400" id="count-val">0</p>
+                    </div>
+                </div>
+
+                <!-- 2. 컨트롤러 박스 -->
+                <div class="theme-panel bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-6">
+                    
+                    <!-- 슬릿 선택 -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="font-bold text-emerald-400 text-sm">슬릿 개폐 조절</label>
+                            <span id="slit-label" class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300 border border-slate-700">양쪽 슬릿 열림</span>
+                        </div>
+                        <input type="range" id="slit-selector" min="-1" max="1" step="1" value="0" class="slider-slit w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[11px] text-slate-500 mt-2 font-bold">
+                            <span>왼쪽만 열림</span>
+                            <span>양쪽 슬릿</span>
+                            <span>오른쪽만 열림</span>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-700">
+
+                    <!-- 발사 조작 -->
+                    <div class="space-y-4">
+                        <!-- 연속 빔 토글 -->
+                        <div class="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
+                            <span class="text-sm font-bold text-slate-300">연속 발사 (Beam)</span>
+                            <div class="relative inline-block w-12 align-middle select-none">
+                                <input type="checkbox" name="toggle" id="beam-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer mt-0.5"/>
+                                <label for="beam-toggle" class="toggle-label block overflow-hidden cursor-pointer"></label>
+                            </div>
+                        </div>
+
+                        <!-- 1개씩 발사 / 초기화 버튼 -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="btn-fire-single" class="py-3 bg-blue-600 hover:bg-blue-500 border border-blue-400 rounded-lg text-sm text-white font-bold transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)] active:scale-95">
+                                1개씩 발사
+                            </button>
+                            <button id="btn-reset" class="py-3 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-lg text-sm text-slate-300 font-bold transition-colors active:scale-95">
+                                실험 초기화
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 오른쪽: 스크린 및 탑뷰 (시각화) -->
+            <div class="lg:col-span-8 flex flex-col gap-6 h-full">
+                
+                <!-- 1. 탑뷰 (전자의 파동 진행) -->
+                <div class="theme-panel bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg h-56 flex flex-col">
+                    <div class="flex justify-between items-end mb-2">
+                        <h3 class="font-bold text-blue-400 text-sm">&lt;탑뷰: 전자의 파동(물질파) 진행&gt;</h3>
+                        <span class="text-[10px] text-slate-500 italic">※ 파동으로 진행하다가 스크린에 닿는 순간 점(입자)으로 붕괴합니다.</span>
+                    </div>
+                    <div class="flex-1 w-full relative">
+                        <div class="topdown-container">
+                            <canvas id="topdownCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                        <div class="absolute left-2 top-2 text-[10px] text-slate-500 font-bold">전자총</div>
+                        <div class="absolute left-[30%] top-2 text-[10px] text-emerald-500 font-bold">이중 슬릿</div>
+                        <div class="absolute right-2 top-2 text-[10px] text-green-500 font-bold">스크린</div>
+                    </div>
+                </div>
+
+                <!-- 2. 메인 스크린 (정면 뷰) -->
+                <div class="theme-panel bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex-1 flex flex-col min-h-[350px]">
+                    <div class="flex justify-between items-end mb-2">
+                        <h3 class="font-bold text-purple-400 text-sm">&lt;정면뷰: 스크린에 맺힌 간섭 무늬&gt;</h3>
+                        <span class="text-[10px] text-slate-400">붉은 점(전자)이 누적됩니다.</span>
+                    </div>
+                    <div class="flex-1 w-full relative">
+                        <div class="screen-container">
+                            <canvas id="screenCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const sliderSlit = document.getElementById('slit-selector');
+        const slitLabel = document.getElementById('slit-label');
+        const timeVal = document.getElementById('time-val');
+        const countVal = document.getElementById('count-val');
+        const beamToggle = document.getElementById('beam-toggle');
+        const btnFireSingle = document.getElementById('btn-fire-single');
+        const btnReset = document.getElementById('btn-reset');
+        
+        const screenCanvas = document.getElementById('screenCanvas');
+        const sCtx = screenCanvas.getContext('2d');
+        const topdownCanvas = document.getElementById('topdownCanvas');
+        const tdCtx = topdownCanvas.getContext('2d');
+
+        // State Variables
+        let electronCount = 0;
+        let timeElapsed = 0.0;
+        let isBeamOn = false;
+        let currentMode = 0; // -1: Left(Top), 0: Both, 1: Right(Bottom)
+        let animationId = null;
+        
+        // Array to hold traveling electrons in Top-Down view
+        const travelingElectrons = [];
+
+        // Resize Canvases
+        function resizeCanvases() {
+            const sRect = screenCanvas.parentElement.getBoundingClientRect();
+            screenCanvas.width = sRect.width;
+            screenCanvas.height = sRect.height;
+
+            const tdRect = topdownCanvas.parentElement.getBoundingClientRect();
+            topdownCanvas.width = tdRect.width;
+            topdownCanvas.height = tdRect.height;
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // Probability Function
+        function getProbability(xRatio, mode) {
+            const nx = (xRatio - 0.5) * 20; 
+            if (mode === -1) {
+                return Math.exp(-Math.pow(nx + 3, 2) / 5);
+            } else if (mode === 1) {
+                return Math.exp(-Math.pow(nx - 3, 2) / 5);
+            } else {
+                const envelope = Math.exp(-Math.pow(nx, 2) / 12);
+                const interference = Math.pow(Math.cos(nx * 2.2), 2); 
+                return envelope * interference;
+            }
+        }
+
+        // Spawn electron in Top-Down view
+        function spawnElectron() {
+            let maxTries = 50;
+            let hit = false;
+            let targetXRatio = 0;
+
+            // Rejection Sampling for target position on screen
+            while(maxTries-- > 0) {
+                const testXRatio = Math.random();
+                const p = getProbability(testXRatio, currentMode);
+                if (Math.random() < p) {
+                    targetXRatio = testXRatio;
+                    hit = true;
+                    break;
+                }
+            }
+            if(!hit) targetXRatio = 0.5;
+
+            // Determine which slit it goes through visually
+            let slitRatio;
+            if (currentMode === -1) slitRatio = 0.35; // Left slit (Top in 2D)
+            else if (currentMode === 1) slitRatio = 0.65; // Right slit (Bottom in 2D)
+            else slitRatio = Math.random() < 0.5 ? 0.35 : 0.65; // Randomly pick one if both open
+
+            travelingElectrons.push({
+                progress: 0,
+                targetRatio: targetXRatio, // Where it hits on the screen (0 to 1)
+                slitRatio: slitRatio       // Which slit it passes through
+            });
+        }
+
+        // Draw electron hit on Main Screen (Front View)
+        function drawHitOnScreen(xRatio) {
+            const w = screenCanvas.width;
+            const h = screenCanvas.height;
+            const px = xRatio * w;
+            const py = Math.random() * h;
+
+            sCtx.fillStyle = '#ff0000'; // Red dot
+            sCtx.fillRect(px, py, 1.5, 1.5);
+        }
+
+        // Update UI
+        function updateStatsUI() {
+            countVal.innerText = electronCount;
+            timeVal.innerText = timeElapsed.toFixed(1);
+        }
+
+        // Animation Loop (handles top-down rendering and moving electrons)
+        function animationLoop() {
+            // Spawn electrons if beam is on
+            if (isBeamOn) {
+                for(let i=0; i<20; i++) { // 프레임당 발사 개수 증가 (6 -> 20)
+                    spawnElectron();
+                }
+                timeElapsed += 0.05; // 시간에 따른 증가량 조정
+            }
+
+            // --- Draw Top-Down View ---
+            const tw = topdownCanvas.width;
+            const th = topdownCanvas.height;
+            tdCtx.clearRect(0, 0, tw, th);
+
+            // X-coordinates
+            const gunX = 10;
+            const barrierX = tw * 0.35;
+            const screenX = tw * 0.9;
+
+            // 1. Draw Gun
+            tdCtx.fillStyle = '#94a3b8';
+            tdCtx.fillRect(gunX - 5, th/2 - 15, 15, 30);
+            tdCtx.fillStyle = '#60a5fa';
+            tdCtx.fillRect(gunX + 10, th/2 - 5, 5, 10); // muzzle
+
+            // 2. Draw Screen
+            tdCtx.strokeStyle = '#22c55e';
+            tdCtx.lineWidth = 4;
+            tdCtx.beginPath();
+            tdCtx.moveTo(screenX, 10);
+            tdCtx.lineTo(screenX, th - 10);
+            tdCtx.stroke();
+
+            // 3. Draw Slit Barrier
+            tdCtx.fillStyle = '#64748b';
+            const gapSize = th * 0.1;
+            const slit1Y = th * 0.35; // Top slit center
+            const slit2Y = th * 0.65; // Bottom slit center
+            
+            // Top block
+            tdCtx.fillRect(barrierX, 0, 10, slit1Y - gapSize/2);
+            // Bottom block
+            tdCtx.fillRect(barrierX, slit2Y + gapSize/2, 10, th - (slit2Y + gapSize/2));
+            
+            // Middle block
+            if (currentMode === -1) { // Left (Top) open, close bottom
+                tdCtx.fillRect(barrierX, slit1Y + gapSize/2, 10, th);
+            } else if (currentMode === 1) { // Right (Bottom) open, close top
+                tdCtx.fillRect(barrierX, 0, 10, slit2Y - gapSize/2);
+            } else { // Both open
+                tdCtx.fillRect(barrierX, slit1Y + gapSize/2, 10, (slit2Y - gapSize/2) - (slit1Y + gapSize/2));
+            }
+
+            // 4. Update and Draw Waves (Matter Waves)
+            tdCtx.strokeStyle = 'rgba(96, 165, 250, 0.6)'; // 파동 색상 (Blue)
+            tdCtx.lineWidth = 1.5;
+            tdCtx.shadowBlur = 5;
+            tdCtx.shadowColor = '#60a5fa';
+
+            for (let i = travelingElectrons.length - 1; i >= 0; i--) {
+                const e = travelingElectrons[i];
+                e.progress += 0.05; // 파동 진행 속도 2배 증가 (0.025 -> 0.05)
+
+                if (e.progress >= 1.0) {
+                    // 스크린에 도달 -> 입자로 붕괴하여 점을 찍음
+                    drawHitOnScreen(e.targetRatio);
+                    electronCount++;
+                    travelingElectrons.splice(i, 1);
+                    updateStatsUI();
+                    continue; 
+                }
+
+                // 파동 패킷(여러 겹의 호)을 그리는 헬퍼 함수
+                const drawWavePacket = (cx, cy, baseRadius, angle) => {
+                    for(let j = -1; j <= 1; j++) {
+                        let r = baseRadius + j * 5; // 파동 사이의 간격
+                        if(r > 0) {
+                            tdCtx.beginPath();
+                            tdCtx.arc(cx, cy, r, -angle, angle);
+                            tdCtx.stroke();
+                        }
+                    }
+                };
+
+                if (e.progress < 0.5) {
+                    // 전자총 -> 슬릿 (하나의 파동으로 진행)
+                    const p = e.progress * 2; 
+                    const r = p * (barrierX - gunX);
+                    drawWavePacket(gunX + 15, th / 2, r, Math.PI / 3);
+                } else {
+                    // 슬릿 -> 스크린 (슬릿을 통과하며 새로운 파원 생성)
+                    const p = (e.progress - 0.5) * 2;
+                    const r = p * (screenX - barrierX);
+                    
+                    if (currentMode === -1 || currentMode === 0) {
+                        // 위쪽(왼쪽) 슬릿을 통과한 파동
+                        drawWavePacket(barrierX + 10, slit1Y, r, Math.PI / 2.2);
+                    }
+                    if (currentMode === 1 || currentMode === 0) {
+                        // 아래쪽(오른쪽) 슬릿을 통과한 파동
+                        drawWavePacket(barrierX + 10, slit2Y, r, Math.PI / 2.2);
+                    }
+                }
+            }
+            tdCtx.shadowBlur = 0;
+
+            animationId = requestAnimationFrame(animationLoop);
+        }
+
+        // Event Listeners
+        sliderSlit.addEventListener('input', (e) => {
+            currentMode = parseInt(e.target.value);
+            if(currentMode === -1) {
+                slitLabel.innerText = "왼쪽(위)만 열림";
+            } else if(currentMode === 1) {
+                slitLabel.innerText = "오른쪽(아래)만 열림";
+            } else {
+                slitLabel.innerText = "양쪽 슬릿 열림";
+            }
+        });
+
+        beamToggle.addEventListener('change', (e) => {
+            isBeamOn = e.target.checked;
+        });
+
+        btnFireSingle.addEventListener('click', () => {
+            spawnElectron(); // Spawn 1 electron
+            timeElapsed += 0.05; 
+            updateStatsUI();
+        });
+
+        btnReset.addEventListener('click', () => {
+            electronCount = 0;
+            timeElapsed = 0.0;
+            updateStatsUI();
+            sCtx.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
+            travelingElectrons.length = 0; // Clear flying electrons
+            
+            if(isBeamOn) {
+                isBeamOn = false;
+                beamToggle.checked = false;
+            }
+        });
+
+        // Init
+        setTimeout(() => {
+            resizeCanvases();
+            updateStatsUI();
+            animationId = requestAnimationFrame(animationLoop);
+        }, 100);
+
+    </script>
+</body>
+</html>
