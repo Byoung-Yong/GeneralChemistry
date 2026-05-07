@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrogen p-Orbital </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* [2025-07-30] Font families use English names only */
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #030712;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        .control-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .control-btn.active {
+            background-color: #f43f5e; /* Rose-500 */
+            color: white;
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+            border-color: #f43f5e;
+        }
+        
+        .axis-btn.active {
+            background-color: #6366f1; /* Indigo-500 */
+            color: white;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            border-color: #6366f1;
+        }
+
+        .tool-btn {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+        }
+        .tool-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .tool-btn:active {
+            transform: scale(0.95);
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        .canvas-container {
+            background-color: #01040a;
+            border-radius: 1.25rem;
+            overflow: hidden;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="max-w-6xl w-full">
+        <header class="theme-hero text-center mb-8 rounded-3xl w-full">
+            <h1 class="text-3xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-rose-400 to-indigo-400 bg-clip-text text-transparent">
+                p-Orbital 
+            </h1>
+
+        </header>
+
+        <!-- Control Bar -->
+        <div class="theme-panel-white glass-panel p-4 rounded-3xl mb-8 flex flex-wrap justify-center items-center gap-4 md:gap-6 w-fit mx-auto shadow-2xl border border-white/5">
+            <!-- Quantum Number -->
+            <div class="flex items-center gap-3">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest text-center">주양자수</span>
+                <div class="flex gap-1.5">
+                    <button onclick="setN(2)" id="btn-n2" class="control-btn active px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">2p</button>
+                    <button onclick="setN(3)" id="btn-n3" class="control-btn px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">3p</button>
+                    <button onclick="setN(4)" id="btn-n4" class="control-btn px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">4p</button>
+                </div>
+            </div>
+            
+            <div class="hidden md:block w-px h-6 bg-slate-700"></div>
+
+            <!-- Direction -->
+            <div class="flex items-center gap-3">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest text-center">방향</span>
+                <div class="flex gap-1.5">
+                    <button onclick="setAxis('x')" id="btn-ax" class="axis-btn active px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">px</button>
+                    <button onclick="setAxis('y')" id="btn-ay" class="axis-btn px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">py</button>
+                    <button onclick="setAxis('z')" id="btn-az" class="axis-btn px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">pz</button>
+                </div>
+            </div>
+
+            <div class="hidden md:block w-px h-6 bg-slate-700"></div>
+
+            <!-- Zoom & Tools -->
+            <div class="flex items-center gap-2">
+                <button onclick="changeZoom(-0.15)" class="theme-btn-secondary tool-btn p-2 rounded-xl text-slate-300" title="Zoom In">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <button onclick="changeZoom(0.15)" class="theme-btn-secondary tool-btn p-2 rounded-xl text-slate-300" title="Zoom Out">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <button onclick="resetView()" class="theme-btn-secondary tool-btn px-4 py-1.5 rounded-xl text-slate-300 text-sm font-semibold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    Reset View
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 2D View -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center px-2 text-slate-300 font-bold text-sm">
+                    <h2 class="flex items-center gap-2 font-sans uppercase tracking-tight text-xs"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>2D Probability Map</h2>
+                    <span id="label-2d" class="text-[10px] font-mono bg-slate-800/50 px-2 py-1 rounded shadow-inner">Plane: X-Y</span>
+                </div>
+                <div class="aspect-square w-full canvas-container relative">
+                    <canvas id="canvas2D" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- 3D View -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center px-2 text-slate-300 font-bold text-sm">
+                    <h2 class="flex items-center gap-2 font-sans uppercase tracking-tight text-xs"><span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>3D 95% Boundary</h2>
+                    <span class="text-[10px] font-mono bg-slate-800/50 px-2 py-1 rounded shadow-inner">Interactive View</span>
+                </div>
+                <div class="aspect-square w-full canvas-container relative overflow-hidden flex items-center justify-center">
+                    <canvas id="canvas3D" class="w-full h-full outline-none"></canvas>
+                </div>
+            </div>
+        </div>
+        
+
+    </div>
+
+    <script>
+        // --- State Management ---
+        let currentN = 2;
+        let currentAxis = 'x';
+        let zoomFactor = 1.0; 
+
+        const ROSE_COLOR = { r: 244, g: 63, b: 94, hex: 0xf43f5e };
+        const INDIGO_COLOR = { r: 79, g: 70, b: 229, hex: 0x4f46e7 };
+
+        const canvas2d = document.getElementById('canvas2D');
+        const ctx2d = canvas2d.getContext('2d');
+        let physW, physH;
+
+        let scene, camera, renderer, orbitalGroup, pivot;
+        let isDragging = false;
+        let prevX = 0, prevY = 0;
+
+        // --- Physics: Hydrogenic Wavefunctions ---
+        function getRadial(n, r) {
+            if (n === 2) {
+                return (1/Math.sqrt(24)) * r * Math.exp(-r/2.0);
+            }
+            if (n === 3) {
+                return (1/Math.sqrt(8.5)) * (r/Math.sqrt(27)) * (4 - 2*r/3.0) * Math.exp(-r/3.0) * 0.42;
+            }
+            if (n === 4) {
+                // R41 has two nodes. Adjusted scaling for 95% visibility.
+                const rho = r;
+                return (1/Math.sqrt(100)) * rho * (80 - 20*rho + rho*rho) * Math.exp(-rho/4.0) * 0.005;
+            }
+            return 0;
+        }
+
+        // --- Numerical Isosurface Profile Generator ---
+        function generateLobeProfile(n, threshold, lengthScale, rStart, rEnd) {
+            const points = [];
+            const steps = 400; // Increased resolution for thinner tails
+
+            let active = false;
+            for (let i = 0; i <= steps; i++) {
+                const r = rStart + (rEnd - rStart) * (i / steps);
+                const rVal = Math.abs(getRadial(n, r));
+
+                if (rVal < threshold) {
+                    if (active) {
+                        points.push(new THREE.Vector2(0, r * lengthScale)); 
+                        break; 
+                    }
+                    continue;
+                }
+
+                if (!active) {
+                    points.push(new THREE.Vector2(0, r * lengthScale)); 
+                    active = true;
+                }
+
+                const cosTheta = threshold / rVal;
+                const sinTheta = Math.sqrt(Math.max(0, 1.0 - cosTheta * cosTheta));
+                
+                const x = r * sinTheta * lengthScale;
+                const y = r * cosTheta * lengthScale;
+                points.push(new THREE.Vector2(x, y));
+            }
+
+            if (points.length > 2) {
+                points[0].x = 0; 
+                points[points.length - 1].x = 0;
+                return points;
+            }
+            return null;
+        }
+
+        function createMesh(points, color, sign) {
+            if (!points) return null;
+            const geometry = new THREE.LatheGeometry(points, 64);
+            const material = new THREE.MeshPhongMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.88,
+                shininess: 90,
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            if (sign < 0) mesh.rotation.x = Math.PI;
+            return mesh;
+        }
+
+        // --- View Updates ---
+        function draw2D() {
+            if (!physW || !physH) return;
+            ctx2d.clearRect(0, 0, physW, physH);
+            const imgData = ctx2d.createImageData(physW, physH);
+            const data = imgData.data;
+
+            const cx = physW / 2;
+            const cy = physH / 2;
+            
+            let baseRange = 24;
+            if (currentN === 3) baseRange = 45;
+            if (currentN === 4) baseRange = 85;
+            
+            const viewRange = baseRange * zoomFactor; 
+            const scale = physW / viewRange;
+
+            let hLabel, vLabel;
+            if (currentAxis === 'x') { hLabel = 'X'; vLabel = 'Y'; }
+            else if (currentAxis === 'y') { hLabel = 'X'; vLabel = 'Y'; }
+            else { hLabel = 'Y'; vLabel = 'Z'; }
+            document.getElementById('label-2d').innerText = `Plane: ${hLabel}-${vLabel}`;
+
+            for (let py = 0; py < physH; py++) {
+                for (let px = 0; px < physW; px++) {
+                    let dx = (px - cx) / scale;
+                    let dy = (cy - py) / scale;
+                    let r = Math.sqrt(dx*dx + dy*dy);
+                    if (r === 0) continue;
+
+                    let angular = (currentAxis === 'x') ? dx / r : dy / r;
+                    let psi = getRadial(currentN, r) * angular;
+                    let prob = psi * psi;
+                    
+                    // Further boost sensitivity for "95%" visibility in 2D
+                    let intensity = Math.floor(Math.pow(prob, 0.52) * 22000); 
+                    if (intensity > 255) intensity = 255;
+                    if (intensity < 1) continue;
+
+                    const idx = (py * physW + px) * 4;
+                    if (psi > 0) {
+                        data[idx] = ROSE_COLOR.r; data[idx+1] = ROSE_COLOR.g; data[idx+2] = ROSE_COLOR.b;
+                    } else {
+                        data[idx] = INDIGO_COLOR.r; data[idx+1] = INDIGO_COLOR.g; data[idx+2] = INDIGO_COLOR.b;
+                    }
+                    data[idx+3] = intensity;
+                }
+            }
+            ctx2d.putImageData(imgData, 0, 0);
+
+            const dpr = window.devicePixelRatio || 1;
+            ctx2d.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx2d.lineWidth = dpr;
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, cy); ctx2d.lineTo(physW, cy);
+            ctx2d.moveTo(cx, 0); ctx2d.lineTo(cx, physH);
+            ctx2d.stroke();
+            
+            ctx2d.fillStyle = '#64748b';
+            ctx2d.font = `bold ${11 * dpr}px sans-serif`;
+            ctx2d.fillText(hLabel, physW - 25 * dpr, cy - 10 * dpr);
+            ctx2d.fillText(vLabel, cx + 10 * dpr, 25 * dpr);
+        }
+
+        function updateModel() {
+            if (!orbitalGroup) return;
+            orbitalGroup.children.forEach(c => {
+                if(c.geometry) c.geometry.dispose();
+                if(c.material) c.material.dispose();
+            });
+            orbitalGroup.clear();
+
+            const ROSE = ROSE_COLOR.hex;
+            const INDIGO = INDIGO_COLOR.hex;
+            const lengthScale = 0.65; 
+
+            // Lower thresholds to simulate 95% volume
+            if (currentN === 2) {
+                const threshold = 0.010; // Lower than 0.015
+                const pts = generateLobeProfile(2, threshold, lengthScale, 0.001, 22.0);
+                orbitalGroup.add(createMesh(pts, ROSE, 1));
+                orbitalGroup.add(createMesh(pts, INDIGO, -1));
+            } 
+            else if (currentN === 3) {
+                const threshold = 0.005; // Lower than 0.008
+                const innerPts = generateLobeProfile(3, threshold, lengthScale, 0.001, 5.8);
+                if (innerPts) {
+                    orbitalGroup.add(createMesh(innerPts, INDIGO, 1));
+                    orbitalGroup.add(createMesh(innerPts, ROSE, -1));
+                }
+                const outerPts = generateLobeProfile(3, threshold, lengthScale, 6.2, 35.0);
+                if (outerPts) {
+                    orbitalGroup.add(createMesh(outerPts, ROSE, 1));
+                    orbitalGroup.add(createMesh(outerPts, INDIGO, -1));
+                }
+            }
+            else if (currentN === 4) {
+                const threshold = 0.0022; // Lowered to fill out the 4p flimsy look
+                // 4p: Three layered lobes
+                const p1 = generateLobeProfile(4, threshold, lengthScale, 0.001, 5.2);
+                if (p1) {
+                    orbitalGroup.add(createMesh(p1, ROSE, 1));
+                    orbitalGroup.add(createMesh(p1, INDIGO, -1));
+                }
+                const p2 = generateLobeProfile(4, threshold, lengthScale, 5.8, 14.5);
+                if (p2) {
+                    orbitalGroup.add(createMesh(p2, INDIGO, 1));
+                    orbitalGroup.add(createMesh(p2, ROSE, -1));
+                }
+                const p3 = generateLobeProfile(4, threshold, lengthScale, 15.2, 65.0);
+                if (p3) {
+                    orbitalGroup.add(createMesh(p3, ROSE, 1));
+                    orbitalGroup.add(createMesh(p3, INDIGO, -1));
+                }
+            }
+
+            orbitalGroup.rotation.set(0, 0, 0);
+            if (currentAxis === 'x') orbitalGroup.rotation.z = -Math.PI / 2;
+            else if (currentAxis === 'z') orbitalGroup.rotation.x = Math.PI / 2;
+
+            syncCamera();
+        }
+
+        function syncCamera() {
+            if (!camera) return;
+            let baseDist = 18;
+            if (currentN === 3) baseDist = 30;
+            if (currentN === 4) baseDist = 55;
+            
+            const dist = baseDist * zoomFactor;
+            camera.position.set(dist * 0.75, dist * 0.5, dist * 0.85);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // --- Interaction ---
+        function init3D() {
+            const canvas3d = document.getElementById('canvas3D');
+            const parent = canvas3d.parentElement;
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(38, parent.clientWidth / parent.clientHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true, alpha: true });
+            renderer.setSize(parent.clientWidth, parent.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio || 1);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+            const light = new THREE.DirectionalLight(0xffffff, 0.7);
+            light.position.set(10, 20, 15);
+            scene.add(light);
+
+            pivot = new THREE.Group();
+            scene.add(pivot);
+            orbitalGroup = new THREE.Group();
+            pivot.add(orbitalGroup);
+            
+            // Helpful axis markers (Red: X, Green: Y, Blue: Z)
+            pivot.add(new THREE.AxesHelper(35));
+
+            updateModel();
+            
+            const start = (x, y) => { isDragging = true; prevX = x; prevY = y; };
+            const move = (x, y) => {
+                if (!isDragging) return;
+                pivot.rotation.y += (x - prevX) * 0.01;
+                pivot.rotation.x += (y - prevY) * 0.01;
+                prevX = x; prevY = y;
+            };
+            canvas3d.addEventListener('mousedown', e => start(e.clientX, e.clientY));
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+            canvas3d.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), {passive:false});
+            window.addEventListener('touchmove', e => move(e.touches[0].clientX, e.touches[0].clientY), {passive:false});
+            window.addEventListener('touchend', () => isDragging = false);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        function changeZoom(delta) {
+            zoomFactor += delta;
+            if (zoomFactor < 0.2) zoomFactor = 0.2;
+            if (zoomFactor > 5.0) zoomFactor = 5.0;
+            
+            draw2D();
+            syncCamera();
+        }
+
+        function resetView() {
+            zoomFactor = 1.0; 
+            if (pivot) pivot.rotation.set(0, 0, 0); 
+            draw2D();
+            syncCamera();
+        }
+
+        function handleResize() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect2d = canvas2d.parentElement.getBoundingClientRect();
+            physW = Math.floor(rect2d.width * dpr);
+            physH = Math.floor(rect2d.height * dpr);
+            canvas2d.width = physW; canvas2d.height = physH;
+            draw2D();
+
+            const canvas3d = document.getElementById('canvas3D');
+            if (renderer && camera) {
+                const rect3d = canvas3d.parentElement.getBoundingClientRect();
+                camera.aspect = rect3d.width / rect3d.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(rect3d.width, rect3d.height);
+                renderer.setPixelRatio(dpr);
+            }
+        }
+
+        function setN(n) {
+            currentN = n;
+            document.querySelectorAll('#btn-n2, #btn-n3, #btn-n4').forEach(b => b.classList.toggle('active', b.id === `btn-n${n}`));
+            draw2D();
+            updateModel();
+        }
+
+        function setAxis(axis) {
+            currentAxis = axis;
+            document.querySelectorAll('.axis-btn').forEach(b => b.classList.toggle('active', b.id === `btn-a${axis}`));
+            draw2D();
+            updateModel();
+        }
+
+        window.onload = () => {
+            handleResize();
+            init3D();
+            window.addEventListener('resize', handleResize);
+        };
+    </script>
+</body>
+</html>

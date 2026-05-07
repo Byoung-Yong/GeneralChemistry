@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penetration Effect and Orbital Energy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        
+        .energy-level {
+            transition: all 0.5s ease-in-out;
+        }
+
+        .canvas-container {
+            background: radial-gradient(circle, #1a202c 0%, #000000 100%);
+            border-radius: 0.5rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .level-group {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            transition: bottom 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .level-label {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-weight: bold;
+            font-size: 1.1rem;
+            width: 25px;
+            text-align: right;
+            margin-right: 6px;
+        }
+
+        .level-dash {
+            width: 16px;
+            height: 3px;
+            background-color: #b91c1c; 
+        }
+
+        #tooltip-penetration {
+            position: absolute;
+            top: 20%;
+            left: 12%;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 flex flex-col gap-6">
+        
+        <!-- Header -->
+        <div class="border-b pb-4">
+            <h1 class="text-2xl font-bold mb-1">침투 효과(Penetration Effect) 시각화 (n=2, n=3)</h1>
+            <p class="text-gray-600 text-sm">
+                주양자수(n)에 따른 오비탈별 유효 핵전하 차이와, 안쪽 껍질을 뚫고 들어가는 침투 현상을 관찰합니다.
+            </p>
+        </div>
+
+        <!-- Top Section: Controls & Energy -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 1. Controls -->
+            <div class="bg-gray-50 p-5 rounded-lg border flex flex-col justify-center">
+                
+                <!-- Atom Model -->
+                <div class="mb-5">
+                    <p class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">1. 원자 모델 선택</p>
+                    <div class="flex gap-4">
+                        <label class="flex-1 border p-3 rounded-md bg-white cursor-pointer hover:bg-blue-50 transition flex items-center">
+                            <input type="radio" name="atomType" value="hydrogen" class="form-radio text-blue-600 w-4 h-4" checked onchange="updateSim()">
+                            <span class="ml-2 text-sm font-medium">수소 원자 ($Z=1$)</span>
+                        </label>
+                        <label class="flex-1 border p-3 rounded-md bg-white cursor-pointer hover:bg-blue-50 transition flex items-center">
+                            <input type="radio" name="atomType" value="multi" class="form-radio text-blue-600 w-4 h-4" onchange="updateSim()">
+                            <span class="ml-2 text-sm font-medium">다전자 ($Z_{eff}$ 차이)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Shell (n) Selection -->
+                <div class="mb-5">
+                    <p class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">2. 관찰 주양자수(n)</p>
+                    <div class="flex gap-4">
+                        <label class="flex-1 border p-2 rounded-md bg-white cursor-pointer hover:bg-blue-50 transition flex items-center justify-center">
+                            <input type="radio" name="shellType" value="2" class="form-radio text-blue-600 w-4 h-4" checked onchange="setShell(2)">
+                            <span class="ml-2 text-sm font-bold">n = 2 껍질</span>
+                        </label>
+                        <label class="flex-1 border p-2 rounded-md bg-white cursor-pointer hover:bg-blue-50 transition flex items-center justify-center">
+                            <input type="radio" name="shellType" value="3" class="form-radio text-blue-600 w-4 h-4" onchange="setShell(3)">
+                            <span class="ml-2 text-sm font-bold">n = 3 껍질</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Orbital Selection -->
+                <div>
+                    <p class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">3. 관찰 오비탈</p>
+                    
+                    <!-- n=2 Buttons -->
+                    <div id="buttons-n2" class="flex gap-3">
+                        <button id="btn-2s" class="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold shadow-md transition" onclick="setOrbital('2s')">2s</button>
+                        <button id="btn-2p" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md font-bold hover:bg-gray-300 transition" onclick="setOrbital('2p')">2p</button>
+                    </div>
+
+                    <!-- n=3 Buttons -->
+                    <div id="buttons-n3" class="hidden gap-3">
+                        <button id="btn-3s" class="flex-1 py-2 bg-orange-500 text-white rounded-md font-bold shadow-md transition" onclick="setOrbital('3s')">3s</button>
+                        <button id="btn-3p" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md font-bold hover:bg-gray-300 transition" onclick="setOrbital('3p')">3p</button>
+                        <button id="btn-3d" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md font-bold hover:bg-gray-300 transition" onclick="setOrbital('3d')">3d</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Energy Level Diagram -->
+            <div class="bg-gray-50 p-5 rounded-lg border relative min-h-[300px]">
+                <h3 class="text-center font-bold mb-4">에너지 준위 변화</h3>
+                
+                <div class="absolute left-8 top-12 bottom-12 w-0.5 bg-yellow-500">
+                    <div class="absolute -top-2 left-[-4.5px] w-0 h-0 border-l-[5px] border-r-[5px] border-b-[10px] border-l-transparent border-r-transparent border-b-yellow-500"></div>
+                    <span class="absolute -top-6 -left-3 font-serif italic text-lg font-bold text-yellow-600">E</span>
+                </div>
+
+                <div id="level-1s" class="level-group" style="left: 18%;">
+                    <span class="level-label text-gray-500">1s</span>
+                    <div class="flex gap-1"><div class="level-dash"></div></div>
+                </div>
+                
+                <div id="level-2s" class="level-group" style="left: 18%;">
+                    <span class="level-label text-blue-600">2s</span>
+                    <div class="flex gap-1"><div class="level-dash"></div></div>
+                </div>
+                <div id="level-2p" class="level-group" style="left: 35%;">
+                    <span class="level-label text-green-600">2p</span>
+                    <div class="flex gap-1"><div class="level-dash"></div><div class="level-dash"></div><div class="level-dash"></div></div>
+                </div>
+                
+                <div id="level-3s" class="level-group" style="left: 18%;">
+                    <span class="level-label text-orange-600">3s</span>
+                    <div class="flex gap-1"><div class="level-dash"></div></div>
+                </div>
+                <div id="level-3p" class="level-group" style="left: 35%;">
+                    <span class="level-label text-purple-600">3p</span>
+                    <div class="flex gap-1"><div class="level-dash"></div><div class="level-dash"></div><div class="level-dash"></div></div>
+                </div>
+                <div id="level-3d" class="level-group" style="left: 60%;">
+                    <span class="level-label text-pink-600">3d</span>
+                    <div class="flex gap-1">
+                        <div class="level-dash"></div><div class="level-dash"></div><div class="level-dash"></div><div class="level-dash"></div><div class="level-dash"></div>
+                    </div>
+                </div>
+
+                <div id="energy-desc" class="absolute bottom-2 text-xs text-center w-full px-4 font-medium text-gray-600 italic">
+                    수소: 축퇴(Degeneracy) 상태
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Section: Detailed Visualization -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- 3. Radial Probability Chart -->
+            <div class="bg-white border rounded-lg p-5 flex flex-col relative h-[400px]">
+                <h3 id="chart-title" class="text-center font-bold mb-4">방사방향 확률 분포 (n=2)</h3>
+                <div class="flex-grow relative w-full">
+                    <canvas id="radialChart"></canvas>
+                    <div id="tooltip-penetration">
+                        ← 안쪽 침투 봉우리
+                    </div>
+                </div>
+                <div class="text-sm mt-4 p-3 bg-blue-50 rounded-md border border-blue-100 h-20 overflow-hidden">
+                    <p class="text-gray-700 leading-relaxed text-xs" id="chart-dynamic-desc">
+                        수소 모델입니다. 전자가 느끼는 유효 핵전하가 균일합니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 4. Overlapped Electron Cloud -->
+            <div class="bg-white border rounded-lg p-5 flex flex-col h-[400px]">
+                <h3 class="text-center font-bold mb-4">전자구름 형태 왜곡 시각화</h3>
+                
+                <div class="flex justify-center gap-4 mb-4">
+                    <!-- Core Toggle -->
+                    <label class="inline-flex items-center text-sm font-bold cursor-pointer bg-gray-100 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition">
+                        <input type="checkbox" id="toggle-core" class="form-checkbox text-purple-600 w-5 h-5 rounded" checked onchange="startCloudDrawing()">
+                        <span class="ml-2" id="label-core-cloud">n=1 코어 <span class="text-xs font-normal text-purple-500">(보라색)</span></span>
+                    </label>
+                    <!-- Outer Toggle -->
+                    <label class="inline-flex items-center text-sm font-bold cursor-pointer bg-gray-100 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition">
+                        <input type="checkbox" id="toggle-outer" class="form-checkbox text-blue-600 w-5 h-5 rounded" checked onchange="startCloudDrawing()">
+                        <span class="ml-2" id="label-outer-cloud" style="color: #2563eb;">2s 오비탈</span>
+                    </label>
+                </div>
+
+                <div class="canvas-container flex-grow flex items-center justify-center">
+                    <canvas id="cloudCanvas"></canvas>
+                </div>
+                <div class="text-sm mt-4 p-3 bg-gray-50 rounded-md border text-gray-700 h-20 overflow-hidden">
+                    <p id="cloud-desc" class="text-xs leading-relaxed">
+                        <strong>모양 변화:</strong> 코어 영역 내부로 확률 밀도가 집중되며 침투하는 모습을 관찰하세요.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentAtom = 'hydrogen';
+        let currentShell = 2;
+        let currentOrbital = '2s';
+        
+        let zScale = {
+            '1s': 1.0,
+            '2s': 1.0, '2p': 1.0,
+            '3s': 1.0, '3p': 1.0, '3d': 1.0
+        };
+
+        const cloudCanvas = document.getElementById('cloudCanvas');
+        const cloudCtx = cloudCanvas.getContext('2d');
+        let cloudAnimId;
+        let particlesDrawn = 0;
+        const MAX_PARTICLES = 70000;
+
+        const chartCtx = document.getElementById('radialChart').getContext('2d');
+        let radialChart;
+
+        const NORM_FACTORS = {};
+        function calculateNormalization() {
+            ['2s', '2p', '3s', '3p', '3d'].forEach(orb => {
+                let sum = 0;
+                let step = 0.05;
+                for(let x=0; x<=150; x+=step) { 
+                    let val = 0;
+                    if (orb === '2s') val = Math.pow(x * (1 - x/2) * Math.exp(-x/2), 2);
+                    if (orb === '2p') val = Math.pow(x * x * Math.exp(-x/2), 2);
+                    if (orb === '3s') val = Math.pow(x * (1 - 2*x/3 + 2*x*x/27) * Math.exp(-x/3), 2);
+                    if (orb === '3p') val = Math.pow(x * x * (1 - x/6) * Math.exp(-x/3), 2);
+                    if (orb === '3d') val = Math.pow(x * x * x * Math.exp(-x/3), 2);
+                    sum += val * step;
+                }
+                NORM_FACTORS[orb] = 1 / sum;
+            });
+        }
+        calculateNormalization();
+
+        function prob_chart(orb, r) {
+            let z = zScale[orb];
+            let x = (z * r) / 1.8;
+            let val = 0;
+            if (orb === '2s') val = Math.pow(x * (1 - x/2) * Math.exp(-x/2), 2);
+            if (orb === '2p') val = Math.pow(x * x * Math.exp(-x/2), 2);
+            if (orb === '3s') val = Math.pow(x * (1 - 2*x/3 + 2*x*x/27) * Math.exp(-x/3), 2);
+            if (orb === '3p') val = Math.pow(x * x * (1 - x/6) * Math.exp(-x/3), 2);
+            if (orb === '3d') val = Math.pow(x * x * x * Math.exp(-x/3), 2);
+            return val * NORM_FACTORS[orb] * z * 8.0;
+        }
+
+        function density_outer(orb, x, y) {
+            let z = zScale[orb];
+            let r_px = Math.sqrt(x*x + y*y) / 10.0; 
+            if (r_px === 0) return 0;
+            
+            let X = z * r_px;
+            let R2 = 0; 
+            let ang = 1;
+
+            if (orb === '2s') { R2 = Math.pow((1 - X/2) * Math.exp(-X/2), 2) * 0.15; }
+            if (orb === '2p') { R2 = Math.pow(X * Math.exp(-X/2), 2) * 0.15; ang = Math.pow(x / Math.sqrt(x*x + y*y), 2); }
+            if (orb === '3s') { R2 = Math.pow((1 - 2*X/3 + 2*X*X/27) * Math.exp(-X/3), 2) * 0.2; }
+            if (orb === '3p') { R2 = Math.pow(X * (1 - X/6) * Math.exp(-X/3), 2) * 0.15; ang = Math.pow(x / Math.sqrt(x*x + y*y), 2); }
+            if (orb === '3d') { R2 = Math.pow(X * X * Math.exp(-X/3), 2) * 0.05; ang = 4 * Math.pow((x*y) / (x*x + y*y), 2); }
+
+            return R2 * ang * z;
+        }
+
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            initChart();
+            updateSim();
+        }
+
+        function resizeCanvas() {
+            const container = cloudCanvas.parentElement;
+            cloudCanvas.width = container.clientWidth;
+            cloudCanvas.height = container.clientHeight;
+            if (particlesDrawn > 0) startCloudDrawing();
+        }
+
+        function setPos(orb, bottom) {
+            const el = document.getElementById('level-' + orb);
+            if(el) { el.style.bottom = bottom + '%'; }
+        }
+
+        function updateSim() {
+            const atomTypeRadio = document.querySelector('input[name="atomType"]:checked');
+            currentAtom = atomTypeRadio.value;
+            
+            const desc = document.getElementById('energy-desc');
+            const chartDesc = document.getElementById('chart-dynamic-desc');
+
+            if (currentAtom === 'hydrogen') {
+                Object.keys(zScale).forEach(k => zScale[k] = 1.0);
+                setPos('1s', 10);
+                setPos('2s', 45); setPos('2p', 45);
+                setPos('3s', 80); setPos('3p', 80); setPos('3d', 80);
+                desc.innerHTML = '수소: 축퇴(Degeneracy) 상태. 같은 n 껍질의 에너지가 모두 동일함.';
+                chartDesc.innerHTML = '수소($Z=1$) 모델입니다. 오비탈이 넓게 퍼져 있으며, 안쪽 침투 봉우리가 매우 작고 에너지에 영향을 주지 않습니다.';
+            } else {
+                zScale['1s'] = 2.8; 
+                zScale['2s'] = 1.6; zScale['2p'] = 1.25; 
+                zScale['3s'] = 1.1; zScale['3p'] = 0.9; zScale['3d'] = 0.75; 
+                
+                setPos('1s', 10);
+                setPos('2s', 28); setPos('2p', 42);
+                setPos('3s', 56); setPos('3p', 68); setPos('3d', 85);
+                
+                desc.innerHTML = '다전자: $Z_{eff}(ns) > Z_{eff}(np) > Z_{eff}(nd)$ 순으로 에너지 준위가 역전됨.';
+                chartDesc.innerHTML = '다전자 모델입니다. <strong>마디가 많아 핵심부로 침투할수록(s > p > d)</strong> 더 큰 $Z_{eff}$를 느껴 오비탈이 크게 수축하고 에너지가 안정화됩니다.';
+            }
+
+            updateChartData();
+            startCloudDrawing();
+        }
+
+        function setShell(n) {
+            currentShell = n;
+            
+            const n2Div = document.getElementById('buttons-n2');
+            const n3Div = document.getElementById('buttons-n3');
+            const labelCore = document.getElementById('label-core-cloud');
+            
+            if (n === 2) {
+                n2Div.style.display = 'flex';
+                n2Div.classList.remove('hidden');
+                n3Div.style.display = 'none';
+                n3Div.classList.add('hidden');
+                document.getElementById('chart-title').innerText = '방사방향 확률 분포 (n=2)';
+                
+                // 코어 라벨 업데이트 (n=2일 때는 1s만 코어)
+                labelCore.innerHTML = 'n=1 코어 <span class="text-xs font-normal text-fuchsia-500">(보라색)</span>';
+                setOrbital('2s');
+            } else {
+                n3Div.style.display = 'flex';
+                n3Div.classList.remove('hidden');
+                n2Div.style.display = 'none';
+                n2Div.classList.add('hidden');
+                document.getElementById('chart-title').innerText = '방사방향 확률 분포 (n=3)';
+                
+                // 코어 라벨 업데이트 (n=3일 때는 1s, 2s, 2p가 모두 코어)
+                labelCore.innerHTML = 'n=1, 2 코어 <span class="text-xs font-normal text-cyan-500">(보라색+하늘색)</span>';
+                setOrbital('3s');
+            }
+        }
+
+        function updateChartData() {
+            if (!radialChart) return;
+            const d2s = [], d2p = [], d3s = [], d3p = [], d3d = [];
+            for (let r = 0; r <= 45; r += 0.5) {
+                d2s.push(prob_chart('2s', r));
+                d2p.push(prob_chart('2p', r));
+                d3s.push(prob_chart('3s', r));
+                d3p.push(prob_chart('3p', r));
+                d3d.push(prob_chart('3d', r));
+            }
+            radialChart.data.datasets[0].data = d2s;
+            radialChart.data.datasets[1].data = d2p;
+            radialChart.data.datasets[2].data = d3s;
+            radialChart.data.datasets[3].data = d3p;
+            radialChart.data.datasets[4].data = d3d;
+            radialChart.update();
+        }
+
+        function setOrbital(orbital) {
+            currentOrbital = orbital;
+            
+            const colors = {
+                '2s': 'bg-blue-600', '2p': 'bg-green-600',
+                '3s': 'bg-orange-500', '3p': 'bg-purple-500', '3d': 'bg-pink-500'
+            };
+            const textColors = {
+                '2s': '#2563eb', '2p': '#16a34a',
+                '3s': '#f97316', '3p': '#a855f7', '3d': '#ec4899'
+            };
+
+            ['2s','2p','3s','3p','3d'].forEach(orb => {
+                const btn = document.getElementById('btn-' + orb);
+                if (!btn) return;
+                if (orb === orbital) {
+                    btn.className = `flex-1 py-2 ${colors[orb]} text-white rounded-md font-bold shadow-md transition`;
+                } else {
+                    btn.className = `flex-1 py-2 bg-gray-200 text-gray-700 rounded-md font-bold hover:bg-gray-300 transition`;
+                }
+            });
+            
+            radialChart.data.datasets.forEach((ds, i) => {
+                let isCurrentShell = (currentShell === 2 && i < 2) || (currentShell === 3 && i >= 2);
+                radialChart.setDatasetVisibility(i, isCurrentShell);
+                ds.borderWidth = (ds.label.startsWith(currentOrbital)) ? 4 : 1.5;
+            });
+            radialChart.update();
+
+            const tooltip = document.getElementById('tooltip-penetration');
+            const labelOuter = document.getElementById('label-outer-cloud');
+            const cloudDesc = document.getElementById('cloud-desc');
+
+            labelOuter.innerText = `${orbital} 오비탈`;
+            labelOuter.style.color = textColors[orbital];
+
+            let coreStr = currentShell === 2 ? 
+                `<span class="text-fuchsia-600 font-bold">보라색 코어(n=1)</span>` : 
+                `<span class="text-fuchsia-600 font-bold">보라색(n=1)</span> 및 <span class="text-cyan-500 font-bold">하늘색(n=2) 코어</span>`;
+
+            if (orbital.endsWith('s')) {
+                tooltip.style.opacity = 1; 
+                tooltip.innerHTML = `← 가장 깊은 침투 영역 (${orbital})`;
+                cloudDesc.innerHTML = `<strong>${orbital} 시각화:</strong> ${coreStr} 영역 내부로 확률 밀도가 깊숙이 침투하여 에너지가 가장 낮습니다.`;
+            } else if (orbital.endsWith('p')) {
+                tooltip.style.opacity = orbital === '3p' ? 1 : 0;
+                if (orbital === '3p') tooltip.innerHTML = `← 중간 침투 영역 (3p)`;
+                cloudDesc.innerHTML = `<strong>${orbital} 시각화:</strong> ${coreStr}에 의해 일부분 가려집니다. s오비탈보다는 침투 효과가 적습니다.`;
+            } else if (orbital.endsWith('d')) {
+                tooltip.style.opacity = 0;
+                cloudDesc.innerHTML = `<strong>3d 시각화:</strong> 방사방향 마디가 없습니다. ${coreStr}에 완전히 가려져 밖으로 밀려나 에너지가 가장 높습니다.`;
+            }
+            
+            startCloudDrawing();
+        }
+
+        function startCloudDrawing() {
+            if (cloudAnimId) cancelAnimationFrame(cloudAnimId);
+            cloudCtx.clearRect(0, 0, cloudCanvas.width, cloudCanvas.height);
+            particlesDrawn = 0;
+            
+            const showCore = document.getElementById('toggle-core').checked;
+            const showOuter = document.getElementById('toggle-outer').checked;
+            
+            const drawBatch = () => {
+                const batchSize = 3500;
+                let drawnThisFrame = 0;
+                let attempts = 0;
+                const cx = cloudCanvas.width / 2;
+                const cy = cloudCanvas.height / 2;
+
+                const rgbMap = {
+                    '2s': '37, 99, 235', '2p': '22, 163, 74',
+                    '3s': '234, 88, 12', '3p': '147, 51, 234', '3d': '219, 39, 119'
+                };
+                const outerColor = `rgba(${rgbMap[currentOrbital]}, 0.55)`;
+
+                while (drawnThisFrame < batchSize && attempts < batchSize * 20) {
+                    attempts++;
+                    const x = (Math.random() - 0.5) * cloudCanvas.width;
+                    const y = (Math.random() - 0.5) * cloudCanvas.height;
+                    
+                    let r_px = Math.sqrt(x*x + y*y) / 10.0;
+
+                    // 코어 영역 그리기 (사용자 요청에 따라 시각적 강조)
+                    if (showCore) {
+                        // 1. n=1 껍질 코어 (매우 좁고 밝은 보라색)
+                        let d1 = Math.pow(Math.exp(-r_px * 1.5), 2) * 1.0; 
+                        if (Math.random() < d1) {
+                            cloudCtx.fillStyle = 'rgba(217, 70, 239, 0.6)'; // 밝은 보라색 (Fuchsia)
+                            cloudCtx.fillRect(x + cx, y + cy, 1.5, 1.5);
+                            drawnThisFrame++; particlesDrawn++;
+                        }
+
+                        // 2. n=2 껍질 코어 (n=3 관찰 시 활성화, 하늘색 후광 효과)
+                        if (currentShell === 3) {
+                            let X = 0.8 * r_px;
+                            // 2s, 2p가 모두 채워진 껍질은 구형 대칭 (간략화된 방사형 밀도 함수 적용)
+                            let d2 = (Math.pow((1 - X/2) * Math.exp(-X/2), 2) + Math.pow(X * Math.exp(-X/2), 2)) * 0.15;
+                            if (Math.random() < d2) {
+                                cloudCtx.fillStyle = 'rgba(6, 182, 212, 0.35)'; // 밝은 하늘색 (Cyan)
+                                cloudCtx.fillRect(x + cx, y + cy, 1.2, 1.2);
+                                drawnThisFrame++; particlesDrawn++;
+                            }
+                        }
+                    }
+
+                    // 외곽 궤도함수 그리기
+                    if (showOuter) {
+                        let density = density_outer(currentOrbital, x, y);
+                        if (Math.random() < Math.min(1.0, density)) {
+                            cloudCtx.fillStyle = outerColor;
+                            cloudCtx.fillRect(x + cx, y + cy, 1.2, 1.2);
+                            drawnThisFrame++; particlesDrawn++;
+                        }
+                    }
+                }
+
+                // 원자핵
+                cloudCtx.fillStyle = '#ef4444';
+                cloudCtx.beginPath(); cloudCtx.arc(cx, cy, 2.5, 0, Math.PI*2); cloudCtx.fill();
+
+                // 렌더링 층수에 비례하여 최대 파티클 수 조절
+                let coreMultiplier = currentShell === 3 ? 0.6 : 0.3;
+                const targetMax = MAX_PARTICLES * ((showCore ? coreMultiplier : 0) + (showOuter ? 1 : 0));
+                
+                if (particlesDrawn < targetMax) {
+                    cloudAnimId = requestAnimationFrame(drawBatch);
+                }
+            };
+            drawBatch();
+        }
+
+        function initChart() {
+            const labels = [];
+            for (let r = 0; r <= 45; r += 0.5) labels.push(r.toFixed(1));
+
+            radialChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '2s', data: [], borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: '2p', data: [], borderColor: '#16a34a', backgroundColor: 'rgba(22, 163, 74, 0.1)', borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: '3s', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: '3p', data: [], borderColor: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.1)', borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: '3d', data: [], borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.1)', borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { display: true, ticks: { display: false }, grid: { display: false }, title: { display: true, text: '핵으로부터의 거리 (r)', font: { size: 10 } } },
+                        y: { display: true, ticks: { display: false }, beginAtZero: true }
+                    },
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

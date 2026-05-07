@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Standing Wave</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #ffffff;
+      color: #111111;
+    }
+
+    .page {
+      width: min(1100px, calc(100% - 32px));
+      margin: 28px auto;
+    }
+
+    .title {
+      margin: 0 0 16px;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .viewer {
+      border: 1px solid #dddddd;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 560px;
+      background: #ffffff;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+      padding: 18px;
+      border-top: 1px solid #dddddd;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .value {
+      font-weight: 700;
+      color: #0b63ce;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #0b63ce;
+    }
+
+    button {
+      height: 38px;
+      padding: 0 18px;
+      border: 1px solid #111111;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #111111;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover { background: #f5f5f5; }
+
+    .equation {
+      margin: 16px 0 0;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      color: #111111;
+    }
+
+    @media (max-width: 760px) {
+      canvas { height: 660px; }
+      .controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="title">정상파와 파동함수</h1>
+
+    <section class="viewer">
+      <canvas id="waveCanvas"></canvas>
+
+      <div class="controls">
+        <div>
+          <div class="label-row">
+            <span>모드 n</span>
+            <span class="value" id="modeValue">4.0 정상파</span>
+          </div>
+          <input id="mode" type="range" min="1" max="10" step="0.1" value="4" />
+        </div>
+
+        <button id="playPause">Pause</button>
+      </div>
+    </section>
+
+    <div class="equation">정수 n: 정상파 &nbsp;&nbsp; / &nbsp;&nbsp; 비정수 n: 경계조건을 만족하지 못하는 진행파</div>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const modeSlider = document.getElementById('mode');
+    const modeValue = document.getElementById('modeValue');
+    const playPauseButton = document.getElementById('playPause');
+
+    let playing = true;
+    let time = 0;
+    let last = 0;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawLine(points, color, width, dash = []) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        if (i === 0) ctx.moveTo(points[i].x, points[i].y);
+        else ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawLinearStandingWave(x0, y0, w, h, n, phase, isAllowed) {
+      const left = x0 + 38;
+      const right = x0 + w - 38;
+      const centerY = y0 + h / 2;
+      const scaleY = h * 0.30;
+      const steps = 600;
+
+      const segmentStart = isAllowed ? 0 : 1;
+      const segmentEnd = segmentStart + 1;
+
+      function linearWaveValue(u) {
+        if (isAllowed) {
+          return Math.sin(n * Math.PI * u) * Math.cos(phase);
+        }
+        return Math.sin(n * Math.PI * u - phase);
+      }
+
+      const upper = [];
+      const lower = [];
+      const wave = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const local = i / steps;
+        const u = segmentStart + local;
+        const x = left + (right - left) * local;
+        const envelope = isAllowed ? Math.abs(Math.sin(n * Math.PI * u)) : 1;
+        const y = linearWaveValue(u);
+
+        upper.push({ x: x, y: centerY - envelope * scaleY });
+        lower.push({ x: x, y: centerY + envelope * scaleY });
+        wave.push({ x: x, y: centerY - y * scaleY });
+      }
+
+      drawLine([{ x: left, y: centerY }, { x: right, y: centerY }], '#cccccc', 1);
+      if (isAllowed) {
+        drawLine(upper, '#d0d0d0', 1, [5, 5]);
+        drawLine(lower, '#d0d0d0', 1, [5, 5]);
+      }
+      drawLine(wave, isAllowed ? '#0b63ce' : '#d11', 3);
+
+      const startY = linearWaveValue(segmentStart);
+      const endY = linearWaveValue(segmentEnd);
+      const startPixelY = centerY - startY * scaleY;
+      const endPixelY = centerY - endY * scaleY;
+
+      ctx.fillStyle = isAllowed ? '#111111' : '#d11';
+      ctx.beginPath();
+      ctx.arc(left, startPixelY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (isAllowed) {
+        ctx.fillStyle = '#111111';
+        for (let i = 1; i <= n; i++) {
+          const x = left + (right - left) * i / n;
+          if (x <= right) {
+            ctx.beginPath();
+            ctx.arc(x, centerY, 5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else {
+        ctx.save();
+
+        ctx.fillStyle = '#d11';
+        ctx.beginPath();
+        ctx.arc(right, endPixelY, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#d11';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(left, centerY);
+        ctx.lineTo(left, startPixelY);
+        ctx.moveTo(right, centerY);
+        ctx.lineTo(right, endPixelY);
+        ctx.stroke();
+
+        ctx.font = '14px Arial, Helvetica, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#d11';
+        ctx.fillText('비정수 n: 정상파 유지 불가', x0 + w / 2, y0 + h - 34);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#111111';
+      ctx.font = '18px Arial, Helvetica, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isAllowed ? '직선 정상파' : '직선 파동: 경계조건 불만족', x0 + w / 2, y0 + 24);
+    }
+
+    function drawCircularStandingWave(x0, y0, w, h, n, phase, isAllowed) {
+      const cx = x0 + w / 2;
+      const cy = y0 + h / 2 + 8;
+      const R = Math.min(w, h) * 0.29;
+      const radialAmplitude = Math.min(w, h) * 0.045;
+      const steps = 900;
+
+      function circularWaveValue(theta) {
+        if (isAllowed) {
+          return Math.sin(n * theta) * Math.cos(phase);
+        }
+        return Math.sin(n * theta - phase);
+      }
+
+      ctx.strokeStyle = '#222222';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = isAllowed ? '#0b63ce' : '#d11';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+
+      for (let i = 0; i <= steps; i++) {
+        const theta = (i / steps) * Math.PI * 2;
+        const radial = R + radialAmplitude * circularWaveValue(theta);
+        const x = cx + radial * Math.cos(theta);
+        const y = cy + radial * Math.sin(theta);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      ctx.stroke();
+
+      if (!isAllowed) {
+        const previousEndValue = circularWaveValue(Math.PI * 2);
+        const previousEndR = R + radialAmplitude * previousEndValue;
+        const previousEndPoint = { x: cx + previousEndR, y: cy };
+
+        ctx.save();
+
+
+        ctx.fillStyle = '#d11';
+        ctx.beginPath();
+        ctx.arc(previousEndPoint.x, previousEndPoint.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = '14px Arial, Helvetica, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#d11';
+        ctx.fillText('주기 경계조건 불만족', cx, cy + R + 36);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#333333';
+      ctx.font = '28px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('n = ' + n.toFixed(1), cx, cy);
+
+      ctx.fillStyle = '#111111';
+      ctx.font = '18px Arial, Helvetica, sans-serif';
+      ctx.fillText(isAllowed ? '원형 정상파' : '원형 파동함수: 주기조건 불만족', x0 + w / 2, y0 + 24);
+    }
+
+    function render(timestamp) {
+      if (!last) last = timestamp;
+      const dt = (timestamp - last) / 1000;
+      last = timestamp;
+
+      const n = Number(modeSlider.value);
+      const nearestInteger = Math.round(n);
+      const isAllowed = Math.abs(n - nearestInteger) < 0.0001;
+
+      if (playing) time += dt;
+
+      modeValue.textContent = n.toFixed(1) + (isAllowed ? ' 정상파' : ' 경계 불일치');
+
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const phase = time * Math.PI * 2;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (width > 760) {
+        const panelW = width / 2;
+        drawLinearStandingWave(0, 0, panelW, height, n, phase, isAllowed);
+        drawCircularStandingWave(panelW, 0, panelW, height, n, phase, isAllowed);
+
+        ctx.strokeStyle = '#eeeeee';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(panelW, 40);
+        ctx.lineTo(panelW, height - 40);
+        ctx.stroke();
+      } else {
+        drawLinearStandingWave(0, 0, width, height / 2, n, phase, isAllowed);
+        drawCircularStandingWave(0, height / 2, width, height / 2, n, phase, isAllowed);
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    playPauseButton.addEventListener('click', () => {
+      playing = !playing;
+      playPauseButton.textContent = playing ? 'Pause' : 'Play';
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    resizeCanvas();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrogen d-Orbital Wavefunction Isosurface Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #02040a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        .control-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .control-btn.active {
+            background-color: #f43f5e;
+            color: white;
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+            border-color: #f43f5e;
+        }
+
+        .axis-btn {
+            font-size: 0.75rem;
+            min-width: 3.8rem;
+        }
+        .axis-btn.active {
+            background-color: #6366f1;
+            color: white;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            border-color: #6366f1;
+        }
+
+        .tool-btn {
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s;
+        }
+        .tool-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .tool-btn:active {
+            transform: scale(0.95);
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        #canvas2D {
+            filter: brightness(1.12) contrast(1.18) saturate(1.28);
+            image-rendering: auto;
+        }
+
+        .canvas-container {
+            background-color: #010205;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.75);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .loading-badge {
+            position: absolute;
+            bottom: 0.85rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.82);
+            color: rgb(226, 232, 240);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 9999px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.72rem;
+            letter-spacing: 0.03em;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="theme-page min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="max-w-6xl w-full">
+        <header class="theme-hero text-center mb-8 rounded-3xl w-full">
+            <h1 class="text-3xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                d-Orbital Isosurface 3D
+            </h1>
+            <p class="text-slate-400 text-sm md:text-lg max-w-3xl mx-auto leading-relaxed text-balance text-center">
+                수정된 <strong>$d$ 오비탈($l=2$)</strong> 실수 구면조화함수 기반 3D 등위상면입니다.<br>
+                3D 표면은 실제 분리형 파동함수 <span class="math">ψ(r,θ,φ)=R<sub>n2</sub>(r)A<sub>d</sub>(θ,φ)</span>에서
+                등위상 조건을 직접 풀어 만든 매끄러운 경계면입니다.
+            </p>
+        </header>
+
+        <!-- Control Bar -->
+        <div class="theme-panel-white glass-panel p-4 rounded-3xl mb-8 flex flex-wrap justify-center items-center gap-4 md:gap-6 w-fit mx-auto shadow-2xl">
+            <!-- Quantum Number -->
+            <div class="flex items-center gap-3">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest text-center text-xs">주양자수</span>
+                <div class="flex gap-1.5">
+                    <button onclick="setN(3)" id="btn-n3" class="control-btn active px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">3d</button>
+                    <button onclick="setN(4)" id="btn-n4" class="control-btn px-4 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-sm">4d</button>
+                </div>
+            </div>
+
+            <div class="hidden md:block w-px h-6 bg-slate-700"></div>
+
+            <!-- Orbital Type -->
+            <div class="flex items-center gap-3">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest text-center text-xs">오비탈</span>
+                <div class="flex flex-wrap gap-1.5 justify-center">
+                    <button onclick="setOrbital('z2')" id="btn-z2" class="axis-btn control-btn active px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-xs">d<sub>z<sup>2</sup></sub></button>
+                    <button onclick="setOrbital('x2y2')" id="btn-x2y2" class="axis-btn control-btn px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-xs">d<sub>x<sup>2</sup>-y<sup>2</sup></sub></button>
+                    <button onclick="setOrbital('xy')" id="btn-xy" class="axis-btn control-btn px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-xs">d<sub>xy</sub></button>
+                    <button onclick="setOrbital('xz')" id="btn-xz" class="axis-btn control-btn px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-xs">d<sub>xz</sub></button>
+                    <button onclick="setOrbital('yz')" id="btn-yz" class="axis-btn control-btn px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 text-xs">d<sub>yz</sub></button>
+                </div>
+            </div>
+
+            <div class="hidden md:block w-px h-6 bg-slate-700"></div>
+
+            <!-- Zoom & Tools -->
+            <div class="flex items-center gap-2">
+                <button onclick="changeZoom(-0.2)" class="theme-btn-secondary tool-btn p-2 rounded-xl text-slate-300" title="Zoom In">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <button onclick="changeZoom(0.2)" class="theme-btn-secondary tool-btn p-2 rounded-xl text-slate-300" title="Zoom Out">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <button onclick="resetView()" class="theme-btn-secondary tool-btn px-4 py-1.5 rounded-xl text-slate-300 text-sm font-semibold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 2D View -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center px-2 text-slate-300 font-bold text-sm">
+                    <h2 class="flex items-center gap-2 font-sans uppercase tracking-tight text-xs"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>2D Probability Slice</h2>
+                    <span id="label-2d" class="text-[10px] font-mono bg-slate-800/50 px-2 py-1 rounded shadow-inner">Plane: Y-Z</span>
+                </div>
+                <div class="aspect-square w-full canvas-container relative">
+                    <canvas id="canvas2D" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- 3D View -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center px-2 text-slate-300 font-bold text-sm">
+                    <h2 class="flex items-center gap-2 font-sans uppercase tracking-tight text-xs"><span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>3D Wavefunction Isosurface</h2>
+                    <span id="label-3d" class="text-[10px] font-mono bg-slate-800/50 px-2 py-1 rounded shadow-inner">ψ-based smooth mesh</span>
+                </div>
+                <div class="aspect-square w-full canvas-container relative overflow-hidden flex items-center justify-center">
+                    <canvas id="canvas3D" class="w-full h-full outline-none"></canvas>
+                    <div id="loading3D" class="loading-badge hidden">파동함수 기반 3D mesh 생성 중...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center">
+            <p class="text-[11px] text-slate-500 max-w-3xl mx-auto leading-relaxed">
+                ※ 색상은 파동함수의 위상을 뜻합니다. Rose = 양의 위상, Indigo = 음의 위상입니다.
+                $d_{z^2}$는 두 축방향 로브와 반대 위상의 도넛형 고리를 가지며,
+                $d_{xy}$, $d_{xz}$, $d_{yz}$는 각각 대응하는 좌표평면의 사분면에 로브가 놓입니다.
+                $4d$에서는 방사 마디 때문에 같은 각방향에서도 안쪽/바깥쪽 위상이 반전됩니다.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let currentN = 3;
+        let orbitalType = 'z2';
+        let zoomFactor = 1.0;
+
+        const ROSE_COLOR = { r: 244, g: 63, b: 94, hex: 0xf43f5e };    // +
+        const INDIGO_COLOR = { r: 79, g: 70, b: 229, hex: 0x4f46e7 };  // -
+
+        const canvas2d = document.getElementById('canvas2D');
+        const ctx2d = canvas2d.getContext('2d');
+        let physW, physH;
+
+        let scene, camera, renderer, orbitalGroup, pivot, axesGroup;
+        let isDragging = false;
+        let prevX = 0, prevY = 0;
+        let modelBuildToken = 0;
+
+        // --- Physics: hydrogen-like d-orbital wavefunction pieces ---
+        // Units are pedagogical Bohr-radius-like display units.
+        // 2D uses psi(x,y,z)=R_{n2}(r) A_d(x,y,z).
+        // 3D below solves the actual separable wavefunction isosurface
+        // targetSign * R_{n2}(r) * A_d(theta,phi) = constant.
+        // No hand-drawn lobes or torus primitives are used.
+
+        function getRadial(n, r) {
+            if (n === 3) {
+                // R_{32}: proportional to r^2 exp(-r/3)
+                return (r * r) * Math.exp(-r / 3.0);
+            }
+            if (n === 4) {
+                // R_{42}: proportional to r^2 (12-r) exp(-r/4), radial node at r=12
+                return (r * r) * (12.0 - r) * Math.exp(-r / 4.0) * 0.34;
+            }
+            return 0;
+        }
+
+        function getAngular3D(type, x, y, z) {
+            const r2 = x*x + y*y + z*z;
+            if (r2 < 1e-10) return 0;
+
+            // Real d orbitals, up to a common normalization constant.
+            // The relative signs and nodal surfaces are the important features here.
+            if (type === 'z2') return (2*z*z - x*x - y*y) / r2;  // 3z^2-r^2
+            if (type === 'x2y2') return (x*x - y*y) / r2;
+            if (type === 'xy') return (2*x*y) / r2;
+            if (type === 'xz') return (2*x*z) / r2;
+            if (type === 'yz') return (2*y*z) / r2;
+            return 0;
+        }
+
+        function getPsi3D(n, type, x, y, z) {
+            const r = Math.sqrt(x*x + y*y + z*z);
+            return getRadial(n, r) * getAngular3D(type, x, y, z);
+        }
+
+        function getAngular2D(type, x, y, r) {
+            if (r < 0.001) return 0;
+            if (type === 'z2') return (3 * y * y - r * r) / (r * r); // Plane Y-Z; vertical axis is Z
+            if (type === 'x2y2') return (x * x - y * y) / (r * r);   // Plane X-Y
+            if (type === 'xy') return (2 * x * y) / (r * r);         // Plane X-Y
+            if (type === 'xz') return (2 * x * y) / (r * r);         // Plane X-Z; vertical axis is Z
+            if (type === 'yz') return (2 * x * y) / (r * r);         // Plane Y-Z; vertical axis is Z
+            return 0;
+        }
+
+        // --- 2D Rendering ---
+
+        function draw2D() {
+            if (!physW || !physH) return;
+            ctx2d.clearRect(0, 0, physW, physH);
+            const imgData = ctx2d.createImageData(physW, physH);
+            const data = imgData.data;
+
+            const cx = physW / 2;
+            const cy = physH / 2;
+
+            let baseRange = (currentN === 3) ? 48 : 88;
+            const scale = physW / (baseRange * zoomFactor);
+
+            let planeLabel = "X-Y";
+            if (orbitalType === 'z2' || orbitalType === 'yz') planeLabel = "Y-Z";
+            if (orbitalType === 'xz') planeLabel = "X-Z";
+            document.getElementById('label-2d').innerText = `Plane: ${planeLabel}`;
+
+            // Two-pass normalization makes the slice much brighter while preserving
+            // the phase sign and the nodal structure.  The old fixed multiplier was
+            // too dim for several orbitals, especially in high-DPI displays.
+            const psiValues = new Float32Array(physW * physH);
+            let maxAbsPsi = 0;
+
+            for (let py = 0; py < physH; py++) {
+                for (let px = 0; px < physW; px++) {
+                    const dx = (px - cx) / scale;
+                    const dy = (cy - py) / scale;
+                    const r = Math.sqrt(dx*dx + dy*dy);
+                    if (r < 0.1) continue;
+
+                    const angular = getAngular2D(orbitalType, dx, dy, r);
+                    const psi = getRadial(currentN, r) * angular;
+                    const pos = py * physW + px;
+                    psiValues[pos] = psi;
+
+                    const a = Math.abs(psi);
+                    if (a > maxAbsPsi) maxAbsPsi = a;
+                }
+            }
+
+            if (maxAbsPsi > 0) {
+                for (let py = 0; py < physH; py++) {
+                    for (let px = 0; px < physW; px++) {
+                        const pos = py * physW + px;
+                        const psi = psiValues[pos];
+                        if (psi === 0) continue;
+
+                        const amp = Math.abs(psi) / maxAbsPsi;
+                        if (amp < 0.012) continue; // removes faint haze and sharpens the boundary.
+
+                        const contrast = Math.pow(amp, 0.42);
+                        const alpha = Math.floor(Math.min(255, 255 * contrast * 1.18));
+                        if (alpha < 3) continue;
+
+                        const base = psi > 0 ? ROSE_COLOR : INDIGO_COLOR;
+                        const highlight = Math.min(0.38, Math.pow(amp, 0.75) * 0.38);
+
+                        const idx = pos * 4;
+                        data[idx]     = Math.min(255, Math.floor(base.r + (255 - base.r) * highlight));
+                        data[idx + 1] = Math.min(255, Math.floor(base.g + (255 - base.g) * highlight));
+                        data[idx + 2] = Math.min(255, Math.floor(base.b + (255 - base.b) * highlight));
+                        data[idx + 3] = alpha;
+                    }
+                }
+            }
+
+            ctx2d.putImageData(imgData, 0, 0);
+
+            const dpr = window.devicePixelRatio || 1;
+            ctx2d.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+            ctx2d.lineWidth = Math.max(1, dpr * 0.9);
+            ctx2d.beginPath(); ctx2d.moveTo(0, cy); ctx2d.lineTo(physW, cy); ctx2d.stroke();
+            ctx2d.beginPath(); ctx2d.moveTo(cx, 0); ctx2d.lineTo(cx, physH); ctx2d.stroke();
+        }
+
+        // --- Smooth 3D wavefunction isosurface ---
+        // The 3D surface is generated from the actual separable real d-orbital form
+        //     psi(r, theta, phi) = R_{n2}(r) A_d(theta, phi)
+        // For each angular direction on a subdivided sphere, the code solves the
+        // radial equation |R_{n2}(r)| |A_d| = threshold.  This removes the old
+        // Cartesian marching-grid faceting while keeping the wavefunction topology,
+        // phase signs, angular nodal surfaces, and 4d radial-node reversal.
+
+        let lastIsoPercent = 0;
+        const RADIAL_CACHE = new Map();
+        const SPHERE_CACHE = new Map();
+
+        function physicsPointToThree(x, y, z) {
+            // Physics coordinates: x, y, z. Three.js display: x, z(up), y(depth).
+            return new THREE.Vector3(x, z, y);
+        }
+
+        function radialAbs(n, r) {
+            return Math.abs(getRadial(n, r));
+        }
+
+        function maxAngularMagnitude(type) {
+            // With the definitions in getAngular3D: dz2 has axial maximum 2;
+            // the other real d functions have maximum magnitude 1 on the unit sphere.
+            return type === 'z2' ? 2.0 : 1.0;
+        }
+
+        function findRadialPeak(n, a, b) {
+            // Each radial interval used here is unimodal in |R|.
+            let lo = a;
+            let hi = b;
+            for (let iter = 0; iter < 72; iter++) {
+                const m1 = lo + (hi - lo) / 3;
+                const m2 = hi - (hi - lo) / 3;
+                if (radialAbs(n, m1) < radialAbs(n, m2)) lo = m1;
+                else hi = m2;
+            }
+            const rPeak = 0.5 * (lo + hi);
+            return { rPeak, maxAbs: radialAbs(n, rPeak) };
+        }
+
+        function getRadialShells(n) {
+            const key = `n${n}`;
+            if (RADIAL_CACHE.has(key)) return RADIAL_CACHE.get(key);
+
+            let shells;
+            if (n === 3) {
+                shells = [
+                    { name: '3d shell', rMin: 1e-5, rMax: 52.0, radialSign: +1 }
+                ];
+            } else {
+                shells = [
+                    { name: '4d inner shell', rMin: 1e-5, rMax: 12.0 - 1e-5, radialSign: +1 },
+                    { name: '4d outer shell', rMin: 12.0 + 1e-5, rMax: 84.0, radialSign: -1 }
+                ];
+            }
+
+            shells.forEach(shell => {
+                const peak = findRadialPeak(n, shell.rMin, shell.rMax);
+                shell.rPeak = peak.rPeak;
+                shell.maxAbs = peak.maxAbs;
+            });
+            RADIAL_CACHE.set(key, shells);
+            return shells;
+        }
+
+        function bisectAbsRadialRoot(n, a, b, target) {
+            let lo = a;
+            let hi = b;
+            let flo = radialAbs(n, lo) - target;
+            let fhi = radialAbs(n, hi) - target;
+
+            if (Math.abs(flo) < 1e-9) return lo;
+            if (Math.abs(fhi) < 1e-9) return hi;
+
+            // Safety: if numerical endpoints do not bracket, return the closer one.
+            if (flo * fhi > 0) {
+                return Math.abs(flo) < Math.abs(fhi) ? lo : hi;
+            }
+
+            for (let iter = 0; iter < 56; iter++) {
+                const mid = 0.5 * (lo + hi);
+                const fm = radialAbs(n, mid) - target;
+                if (Math.abs(fm) < 1e-9) return mid;
+                if (flo * fm <= 0) {
+                    hi = mid;
+                    fhi = fm;
+                } else {
+                    lo = mid;
+                    flo = fm;
+                }
+            }
+            return 0.5 * (lo + hi);
+        }
+
+        function radialRootsForAngular(shell, threshold, angularMagnitude) {
+            if (angularMagnitude <= 0) return null;
+            const targetRadial = threshold / angularMagnitude;
+            if (targetRadial > shell.maxAbs * (1 + 1e-7)) return null;
+            if (Math.abs(targetRadial - shell.maxAbs) < shell.maxAbs * 1e-6) {
+                return { inner: shell.rPeak, outer: shell.rPeak };
+            }
+            return {
+                inner: bisectAbsRadialRoot(currentN, shell.rMin, shell.rPeak, targetRadial),
+                outer: bisectAbsRadialRoot(currentN, shell.rPeak, shell.rMax, targetRadial)
+            };
+        }
+
+        function normalizeDir(v) {
+            const len = Math.hypot(v.x, v.y, v.z) || 1;
+            return { x: v.x / len, y: v.y / len, z: v.z / len };
+        }
+
+        function midpointDirection(a, b) {
+            return normalizeDir({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+        }
+
+        function buildIcosphere(subdivisions) {
+            const cacheKey = `sub${subdivisions}`;
+            if (SPHERE_CACHE.has(cacheKey)) return SPHERE_CACHE.get(cacheKey);
+
+            const t = (1 + Math.sqrt(5)) / 2;
+            let vertices = [
+                normalizeDir({x:-1, y: t, z: 0}), normalizeDir({x: 1, y: t, z: 0}),
+                normalizeDir({x:-1, y:-t, z: 0}), normalizeDir({x: 1, y:-t, z: 0}),
+                normalizeDir({x: 0, y:-1, z: t}), normalizeDir({x: 0, y: 1, z: t}),
+                normalizeDir({x: 0, y:-1, z:-t}), normalizeDir({x: 0, y: 1, z:-t}),
+                normalizeDir({x: t, y: 0, z:-1}), normalizeDir({x: t, y: 0, z: 1}),
+                normalizeDir({x:-t, y: 0, z:-1}), normalizeDir({x:-t, y: 0, z: 1})
+            ];
+
+            let faces = [
+                [0,11,5], [0,5,1], [0,1,7], [0,7,10], [0,10,11],
+                [1,5,9], [5,11,4], [11,10,2], [10,7,6], [7,1,8],
+                [3,9,4], [3,4,2], [3,2,6], [3,6,8], [3,8,9],
+                [4,9,5], [2,4,11], [6,2,10], [8,6,7], [9,8,1]
+            ];
+
+            for (let level = 0; level < subdivisions; level++) {
+                const midpointCache = new Map();
+                const newFaces = [];
+
+                function midpointIndex(i, j) {
+                    const key = i < j ? `${i}_${j}` : `${j}_${i}`;
+                    if (midpointCache.has(key)) return midpointCache.get(key);
+                    const idx = vertices.length;
+                    vertices.push(midpointDirection(vertices[i], vertices[j]));
+                    midpointCache.set(key, idx);
+                    return idx;
+                }
+
+                for (const [a, b, c] of faces) {
+                    const ab = midpointIndex(a, b);
+                    const bc = midpointIndex(b, c);
+                    const ca = midpointIndex(c, a);
+                    newFaces.push([a, ab, ca]);
+                    newFaces.push([b, bc, ab]);
+                    newFaces.push([c, ca, bc]);
+                    newFaces.push([ab, bc, ca]);
+                }
+                faces = newFaces;
+            }
+
+            const result = { vertices, faces };
+            SPHERE_CACHE.set(cacheKey, result);
+            return result;
+        }
+
+        function makeClipVertex(dir, shell, targetSign, minAngular) {
+            const A = getAngular3D(orbitalType, dir.x, dir.y, dir.z);
+            const angularMagnitude = targetSign * shell.radialSign * A;
+            return {
+                dir,
+                angularMagnitude,
+                g: angularMagnitude - minAngular
+            };
+        }
+
+        function interpolateClipVertex(a, b, shell, targetSign, minAngular) {
+            const t = a.g / (a.g - b.g);
+            const dir = normalizeDir({
+                x: a.dir.x + (b.dir.x - a.dir.x) * t,
+                y: a.dir.y + (b.dir.y - a.dir.y) * t,
+                z: a.dir.z + (b.dir.z - a.dir.z) * t
+            });
+            const v = makeClipVertex(dir, shell, targetSign, minAngular);
+            // The normalized interpolation may move the point by tiny amounts;
+            // pin boundary vertices to the exact threshold to close the surface.
+            v.angularMagnitude = Math.max(v.angularMagnitude, minAngular);
+            v.g = v.angularMagnitude - minAngular;
+            return v;
+        }
+
+        function clipTriangleToValidAngularRegion(faceDirs, shell, targetSign, minAngular) {
+            const poly = faceDirs.map(dir => makeClipVertex(dir, shell, targetSign, minAngular));
+            const output = [];
+
+            for (let i = 0; i < poly.length; i++) {
+                const current = poly[i];
+                const next = poly[(i + 1) % poly.length];
+                const currentInside = current.g >= -1e-10;
+                const nextInside = next.g >= -1e-10;
+
+                if (currentInside && nextInside) {
+                    output.push(next);
+                } else if (currentInside && !nextInside) {
+                    output.push(interpolateClipVertex(current, next, shell, targetSign, minAngular));
+                } else if (!currentInside && nextInside) {
+                    output.push(interpolateClipVertex(current, next, shell, targetSign, minAngular));
+                    output.push(next);
+                }
+            }
+
+            return output.length >= 3 ? output : null;
+        }
+
+        function gradientPsiThree(x, y, z, targetSign) {
+            const h = currentN === 3 ? 0.035 : 0.07;
+            const gx = (getPsi3D(currentN, orbitalType, x + h, y, z) - getPsi3D(currentN, orbitalType, x - h, y, z)) / (2 * h);
+            const gy = (getPsi3D(currentN, orbitalType, x, y + h, z) - getPsi3D(currentN, orbitalType, x, y - h, z)) / (2 * h);
+            const gz = (getPsi3D(currentN, orbitalType, x, y, z + h) - getPsi3D(currentN, orbitalType, x, y, z - h)) / (2 * h);
+
+            // Outward normal of the high-amplitude lobe is opposite to grad(targetSign*psi).
+            const n = new THREE.Vector3(-targetSign * gx, -targetSign * gz, -targetSign * gy);
+            if (n.lengthSq() < 1e-20) return new THREE.Vector3(0, 1, 0);
+            return n.normalize();
+        }
+
+        function pushSurfaceVertex(buffers, clippedVertex, radius, targetSign) {
+            const x = clippedVertex.dir.x * radius;
+            const y = clippedVertex.dir.y * radius;
+            const z = clippedVertex.dir.z * radius;
+            const p = physicsPointToThree(x, y, z);
+            const n = gradientPsiThree(x, y, z, targetSign);
+            buffers.positions.push(p.x, p.y, p.z);
+            buffers.normals.push(n.x, n.y, n.z);
+        }
+
+        function pushSurfaceTriangle(buffers, a, b, c, shell, threshold, targetSign, useOuterRoot, reverseOrder) {
+            const verts = [a, b, c].map(v => {
+                const roots = radialRootsForAngular(shell, threshold, v.angularMagnitude);
+                if (!roots) return null;
+                return { clipped: v, radius: useOuterRoot ? roots.outer : roots.inner };
+            });
+            if (verts.some(v => v === null)) return;
+
+            const order = reverseOrder ? [0, 2, 1] : [0, 1, 2];
+            for (const idx of order) {
+                pushSurfaceVertex(buffers, verts[idx].clipped, verts[idx].radius, targetSign);
+            }
+        }
+
+        function pushPolygonSurface(buffers, poly, shell, threshold, targetSign, useOuterRoot, reverseOrder) {
+            for (let i = 1; i < poly.length - 1; i++) {
+                pushSurfaceTriangle(
+                    buffers,
+                    poly[0], poly[i], poly[i + 1],
+                    shell, threshold, targetSign, useOuterRoot, reverseOrder
+                );
+            }
+        }
+
+        function buildWavefunctionMesh(targetSign, color, threshold) {
+            const sphere = buildIcosphere(5);
+            const shells = getRadialShells(currentN);
+            const buffers = { positions: [], normals: [] };
+
+            for (const shell of shells) {
+                const minAngular = threshold / shell.maxAbs;
+                // If the isovalue is above the maximum possible angular contribution
+                // for this shell/sign, this phase component has no surface.
+                if (minAngular > maxAngularMagnitude(orbitalType) + 1e-9) continue;
+
+                for (const face of sphere.faces) {
+                    const faceDirs = face.map(idx => sphere.vertices[idx]);
+                    const poly = clipTriangleToValidAngularRegion(faceDirs, shell, targetSign, minAngular);
+                    if (!poly) continue;
+
+                    // The high-|psi| region is between the two radial roots. Therefore
+                    // both radial boundaries are part of the same wavefunction isosurface.
+                    pushPolygonSurface(buffers, poly, shell, threshold, targetSign, true, false);  // outer root
+                    pushPolygonSurface(buffers, poly, shell, threshold, targetSign, false, true);  // inner root
+                }
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3));
+            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3));
+            geometry.computeBoundingSphere();
+
+            const material = new THREE.MeshStandardMaterial({
+                color,
+                transparent: true,
+                opacity: 0.96,
+                roughness: 0.66,
+                metalness: 0.0,
+                flatShading: false,
+                side: THREE.DoubleSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.frustumCulled = false;
+            return mesh;
+        }
+
+        function rebuildWavefunctionModel() {
+            clearGroup(orbitalGroup);
+            const shells = getRadialShells(currentN);
+            const globalRadialMax = shells.reduce((m, s) => Math.max(m, s.maxAbs), 0);
+            const fraction = currentN === 3 ? 0.15 : 0.10;
+            const threshold = globalRadialMax * maxAngularMagnitude(orbitalType) * fraction;
+            lastIsoPercent = fraction * 100;
+
+            const positiveMesh = buildWavefunctionMesh(+1, ROSE_COLOR.hex, threshold);
+            const negativeMesh = buildWavefunctionMesh(-1, INDIGO_COLOR.hex, threshold);
+            orbitalGroup.add(positiveMesh);
+            orbitalGroup.add(negativeMesh);
+        }
+
+        function disposeObject(obj) {
+            obj.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+                if (child.texture) child.texture.dispose();
+            });
+        }
+
+        function clearGroup(group) {
+            while (group.children.length) {
+                const child = group.children.pop();
+                disposeObject(child);
+            }
+        }
+
+        function updateModel() {
+            if (!orbitalGroup) return;
+            const token = ++modelBuildToken;
+            const loading = document.getElementById('loading3D');
+            loading.classList.remove('hidden');
+            document.getElementById('label-3d').innerText = 'solving ψ isosurface';
+
+            window.setTimeout(() => {
+                if (token !== modelBuildToken) return;
+                rebuildWavefunctionModel();
+                const axisSize = currentN === 3 ? 28 : 56;
+                rebuildAxes(axisSize);
+                syncCamera();
+                loading.classList.add('hidden');
+                document.getElementById('label-3d').innerText = `ψ = ${lastIsoPercent.toFixed(0)}% peak, smooth radial roots`;
+            }, 20);
+        }
+
+        // --- Axes and labels ---
+
+        function makeTextSprite(text, color = '#cbd5e1') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = 'bold 64px Inter, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+            ctx.shadowColor = 'rgba(0,0,0,0.9)';
+            ctx.shadowBlur = 10;
+            ctx.fillText(text, 128, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(5.5, 2.75, 1);
+            return sprite;
+        }
+
+        function addAxisLine(group, end, color, label, labelPos) {
+            const geometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0), end
+            ]);
+            const material = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.45 });
+            group.add(new THREE.Line(geometry, material));
+
+            const sprite = makeTextSprite(label);
+            sprite.position.copy(labelPos);
+            group.add(sprite);
+        }
+
+        function rebuildAxes(size) {
+            if (!axesGroup) return;
+            clearGroup(axesGroup);
+
+            // Physics axes: X = Three x, Y = Three z, Z = Three y(up).
+            addAxisLine(
+                axesGroup,
+                new THREE.Vector3(size, 0, 0),
+                0xf87171,
+                'x',
+                new THREE.Vector3(size * 1.08, 0, 0)
+            );
+            addAxisLine(
+                axesGroup,
+                new THREE.Vector3(0, 0, size),
+                0x34d399,
+                'y',
+                new THREE.Vector3(0, 0, size * 1.08)
+            );
+            addAxisLine(
+                axesGroup,
+                new THREE.Vector3(0, size, 0),
+                0x60a5fa,
+                'z',
+                new THREE.Vector3(0, size * 1.08, 0)
+            );
+        }
+
+        function syncCamera() {
+            if (!camera) return;
+            let baseDist = (currentN === 3) ? 48 : 98;
+            const dist = baseDist * zoomFactor;
+            camera.position.set(dist * 0.72, dist * 0.58, dist * 0.92);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // --- Interaction ---
+        function init3D() {
+            const canvas3d = document.getElementById('canvas3D');
+            const parent = canvas3d.parentElement;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(38, parent.clientWidth / parent.clientHeight, 0.1, 3000);
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas3d,
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(parent.clientWidth, parent.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+            if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+            if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.08;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 1.35));
+            const light1 = new THREE.DirectionalLight(0xffffff, 0.82);
+            light1.position.set(18, 30, 24);
+            scene.add(light1);
+            const light2 = new THREE.DirectionalLight(0xc7d2fe, 0.52);
+            light2.position.set(-24, -18, -20);
+            scene.add(light2);
+
+            pivot = new THREE.Group();
+            scene.add(pivot);
+
+            orbitalGroup = new THREE.Group();
+            axesGroup = new THREE.Group();
+            pivot.add(orbitalGroup);
+            pivot.add(axesGroup);
+
+            updateModel();
+
+            const start = (x, y) => { isDragging = true; prevX = x; prevY = y; };
+            const move = (x, y) => {
+                if (!isDragging) return;
+                pivot.rotation.y += (x - prevX) * 0.01;
+                pivot.rotation.x += (y - prevY) * 0.01;
+                prevX = x; prevY = y;
+            };
+            canvas3d.addEventListener('mousedown', e => start(e.clientX, e.clientY));
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+            canvas3d.addEventListener('touchstart', e => {
+                if (e.touches.length) start(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive:false});
+            window.addEventListener('touchmove', e => {
+                if (e.touches.length) move(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive:false});
+            window.addEventListener('touchend', () => isDragging = false);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        function changeZoom(delta) {
+            zoomFactor += delta;
+            zoomFactor = Math.max(0.2, Math.min(zoomFactor, 6.0));
+            draw2D();
+            syncCamera();
+        }
+
+        function resetView() {
+            zoomFactor = 1.0;
+            if (pivot) pivot.rotation.set(0, 0, 0);
+            draw2D();
+            syncCamera();
+        }
+
+        function handleResize() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect2d = canvas2d.parentElement.getBoundingClientRect();
+            physW = Math.floor(rect2d.width * dpr);
+            physH = Math.floor(rect2d.height * dpr);
+            canvas2d.width = physW; canvas2d.height = physH;
+            draw2D();
+
+            const canvas3d = document.getElementById('canvas3D');
+            if (renderer && camera) {
+                const rect3d = canvas3d.parentElement.getBoundingClientRect();
+                camera.aspect = rect3d.width / rect3d.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(rect3d.width, rect3d.height);
+                renderer.setPixelRatio(Math.min(dpr, 2.5));
+            }
+        }
+
+        function setN(n) {
+            currentN = n;
+            document.querySelectorAll('#btn-n3, #btn-n4').forEach(b => b.classList.toggle('active', b.id === `btn-n${n}`));
+            draw2D();
+            updateModel();
+        }
+
+        function setOrbital(type) {
+            orbitalType = type;
+            document.querySelectorAll('.axis-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${type}`));
+            draw2D();
+            updateModel();
+        }
+
+        window.onload = () => {
+            handleResize();
+            init3D();
+            window.addEventListener('resize', handleResize);
+        };
+    </script>
+</body>
+</html>
