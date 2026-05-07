@@ -97,7 +97,7 @@
 </head>
 <body>
   <main class="page">
-    <h1 class="title">정상파와 파동함수</h1>
+    <h1 class="title">정류파와 파동함수</h1>
 
     <section class="viewer">
       <canvas id="waveCanvas"></canvas>
@@ -106,7 +106,7 @@
         <div>
           <div class="label-row">
             <span>모드 n</span>
-            <span class="value" id="modeValue">4.0 정상파</span>
+            <span class="value" id="modeValue">4.0 정류파</span>
           </div>
           <input id="mode" type="range" min="1" max="10" step="0.1" value="4" />
         </div>
@@ -115,7 +115,7 @@
       </div>
     </section>
 
-    <div class="equation">정수 n: 정상파 &nbsp;&nbsp; / &nbsp;&nbsp; 비정수 n: 경계조건을 만족하지 못하는 진행파</div>
+    <div class="equation">정수 n: 정류파 &nbsp;&nbsp; / &nbsp;&nbsp; 비정수 n: 경계조건을 만족하지 못하는 진행파</div>
   </main>
 
   <script>
@@ -234,7 +234,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#d11';
-        ctx.fillText('비정수 n: 정상파 유지 불가', x0 + w / 2, y0 + h - 34);
+        ctx.fillText('비정수 n: 정류파 유지 불가', x0 + w / 2, y0 + h - 34);
         ctx.restore();
       }
 
@@ -242,7 +242,7 @@
       ctx.font = '18px Arial, Helvetica, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(isAllowed ? '직선 정상파' : '직선 파동: 경계조건 불만족', x0 + w / 2, y0 + 24);
+      ctx.fillText(isAllowed ? '직선 정류파' : '직선 파동: 경계조건 불만족', x0 + w / 2, y0 + 24);
     }
 
     function drawCircularStandingWave(x0, y0, w, h, n, phase, isAllowed) {
@@ -310,7 +310,7 @@
 
       ctx.fillStyle = '#111111';
       ctx.font = '18px Arial, Helvetica, sans-serif';
-      ctx.fillText(isAllowed ? '원형 정상파' : '원형 파동함수: 주기조건 불만족', x0 + w / 2, y0 + 24);
+      ctx.fillText(isAllowed ? '원형 정류파' : '원형 파동함수: 주기조건 불만족', x0 + w / 2, y0 + 24);
     }
 
     function render(timestamp) {
@@ -324,7 +324,7 @@
 
       if (playing) time += dt;
 
-      modeValue.textContent = n.toFixed(1) + (isAllowed ? ' 정상파' : ' 경계 불일치');
+      modeValue.textContent = n.toFixed(1) + (isAllowed ? ' 정류파' : ' 경계 불일치');
 
       const rect = canvas.getBoundingClientRect();
       const width = rect.width;
